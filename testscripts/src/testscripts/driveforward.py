@@ -8,7 +8,7 @@ class Forward:
     def __init__(self):
         rospy.init_node('driveforward')
         self.rate = rospy.Rate(20)
-        self.botVelPub = rospy.Publisher('/cmd_vel', Twist, queue_size=1)
+        self.botVelPub = rospy.Publisher('cmd_vel', Twist, queue_size=1)
 
     def step(self):
         twist = Twist()
@@ -18,6 +18,7 @@ class Forward:
 
 def main():
     controller = Forward()
+    print("Forward node")
     try:
         while not rospy.is_shutdown():
             controller.step()
