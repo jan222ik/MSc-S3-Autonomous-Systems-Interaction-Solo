@@ -1,5 +1,5 @@
 <launch>
-  <arg name="model" default="burger" doc="model type [burger, waffle, waffle_pi]"/>
+  <arg name="model1" value="burger"/>
   <arg name="x_pos" default="0.0"/>
   <arg name="y_pos" default="0.0"/>
   <arg name="z_pos" default="0.0"/>
@@ -13,9 +13,16 @@
     <arg name="debug" value="false"/>
   </include>
 
-
-  <param name="robot_description" command="$(find xacro)/xacro $(find turtlebot3_description)/urdf/turtlebot3_$(arg model).urdf.xacro" />
-
-  <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model" args="-urdf -model turtlebot3_burger -x $(arg x_pos) -y $(arg y_pos) -z $(arg z_pos) -param robot_description" />
+  <group ns="turtle1">
+    <param name="tf_prefix" value="turtle1_tf"/>
+    <param name="robot_description"
+           command="$(find xacro)/xacro $(find turtlebot3_description)/urdf/turtlebot3_$(arg model1).urdf.xacro"/>
+    <param name="model" value="$(arg model1)"/>
+    <arg name="model" value="$(arg model1)"/>
+    <arg name="robot_name" value="t1"/>
+    <arg name="init_pose" value="-x 1 -y 1 -z 0"/>
+    <node name="spawn_urdf" pkg="gazebo_ros" type="spawn_model"
+          args="-urdf -model turtlebot3_burger_$(arg robot_name) $(arg init_pose) -param robot_description"/>
+  </group>
 
 </launch>
