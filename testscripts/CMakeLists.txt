@@ -11,11 +11,12 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   std_msgs
+  cv_bridge
 )
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
-
+find_package(OpenCV REQUIRED)
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -161,6 +162,7 @@ include_directories(
 ## in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
    src/testscripts/driveforward.py
+   src/testscripts/show_image.py
    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
