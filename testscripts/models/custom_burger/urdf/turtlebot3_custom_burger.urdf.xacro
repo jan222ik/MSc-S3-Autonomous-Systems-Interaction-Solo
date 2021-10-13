@@ -1,7 +1,7 @@
 <?xml version="1.0" ?>
 <robot name="turtlebot3_burger" xmlns:xacro="http://ros.org/wiki/xacro">
   <xacro:include filename="$(find testscripts)/models/custom_burger/urdf/common_properties.xacro"/>
-  <xacro:include filename="$(find testscripts)/models/custom_burger/urdf/turtlebot3_burger.gazebo.xacro"/>
+  <xacro:include filename="$(find testscripts)/models/custom_burger/urdf/turtlebot3_custom_burger.gazebo.xacro"/>
 
   <xacro:property name="r200_cam_rgb_px" value="0.005"/>
   <xacro:property name="r200_cam_rgb_py" value="0.018"/>

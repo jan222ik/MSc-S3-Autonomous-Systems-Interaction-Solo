@@ -14,24 +14,24 @@ class image_converter:
 
   def __init__(self):
     self.image_pub = rospy.Publisher("/rupp/image_topic_color",Image)
-    self.image_grey_pub = rospy.Publisher("/rupp/image_topic_grey",Image)
+    # self.image_grey_pub = rospy.Publisher("/rupp/image_topic_grey",Image)
     self.bridge = CvBridge()
     self.image_sub = rospy.Subscriber("/camera/rgb/image_raw",Image,self.callback)
 
   def callback(self,data):
     try:
       cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
-      cv_image_grey = self.bridge.imgmsg_to_cv2(data, "mono8")
+      # cv_image_grey = self.bridge.imgmsg_to_cv2(data, "mono8")
     except CvBridgeError as e:
       print(e)
 
     cv2.imshow("Image window", cv_image)
-    cv2.imshow("Image window greycale", cv_image_grey)
+    # cv2.imshow("Image window greycale", cv_image_grey)
     cv2.waitKey(3)
 
     try:
       self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "bgr8"))
-      self.image_grey_pub.publish(self.bridge.cv2_to_imgmsg(cv_image_grey, "mono8"))
+      # self.image_grey_pub.publish(self.bridge.cv2_to_imgmsg(cv_image_grey, "mono8"))
     except CvBridgeError as e:
       print(e)
 
