@@ -163,6 +163,7 @@ include_directories(
 catkin_install_python(PROGRAMS
    src/testscripts/driveforward.py
    src/testscripts/show_image.py
+   src/testscripts/detect_tag.py
    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
