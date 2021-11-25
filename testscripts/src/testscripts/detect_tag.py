@@ -11,10 +11,10 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 import numpy as np
 
-class image_converter:
+class tag_detector:
 
   def __init__(self):
-    self.image_pub = rospy.Publisher("/rupp/image_topic_color",Image)
+    self.image_pub = rospy.Publisher("/rupp/image_topic_tag",Image)
     # self.image_grey_pub = rospy.Publisher("/rupp/image_topic_grey",Image)
     self.bridge = CvBridge()
     self.image_sub = rospy.Subscriber("/camera/rgb/image_raw",Image,self.callback)
@@ -23,7 +23,6 @@ class image_converter:
   def callback(self,data):
     try:
       cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
-      print("IN CALLBACK")
 
     except CvBridgeError as e:
       print(e)
@@ -44,18 +43,18 @@ class image_converter:
 
     # get external contours
     contours = cv2.findContours(clean, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    print(len(contours))
     contours = contours[0] if len(contours) == 2 else contours[1]
 
     result1 = cv_image.copy()
     result2 = cv_image.copy()
-    cv2.imshow("TEST", cv_image)
+    #cv2.imshow("TEST", cv_image)
     for c in contours:
       cv2.drawContours(result1, [c], 0, (0, 0, 0), 2)
       # get rotated rectangle from contour
       rot_rect = cv2.minAreaRect(c)
       box = cv2.boxPoints(rot_rect)
       box = np.int0(box)
+      #print("BOX: ", box)
       # draw rotated rectangle on copy of img
       cv2.drawContours(result2, [box], 0, (0, 0, 0), 2)
 
@@ -65,28 +64,25 @@ class image_converter:
     # cv2.imwrite("4cubes_result1.png", result1)
     # cv2.imwrite("4cubes_result2.png", result2)
 
-    # display result
-    try:
-      #self.image_pub.publish(self.bridge.cv2_to_imgmsg(thresh, "bgr8"))
-      #self.image_pub.publish(self.bridge.cv2_to_imgmsg(clean, "bgr8"))
-      self.image_pub.publish(self.bridge.cv2_to_imgmsg(result1, "bgr8"))
-      #self.image_pub.publish(self.bridge.cv2_to_imgmsg(result2, "bgr8"))
-      # self.image_grey_pub.publish(self.bridge.cv2_to_imgmsg(cv_image_grey, "mono8"))
-    except CvBridgeError as e:
-      print(e)
+    #cv2.imshow("image", cv_image)
     #cv2.imshow("thresh", thresh)
     #cv2.imshow("clean", clean)
-    #cv2.imshow("result1", result1)
+    cv2.imshow("result1", result1)
     #cv2.imshow("result2", result2)
     cv2.waitKey(3)
 
     try:
-      self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "bgr8"))
+      #self.image_pub.publish(self.bridge.cv2_to_imgmsg(cv_image, "bgr8"))
+      #self.image_pub.publish(self.bridge.cv2_to_imgmsg(thresh, "8UC1"))
+      #self.image_pub.publish(self.bridge.cv2_to_imgmsg(clean, "8UC1"))
+      self.image_pub.publish(self.bridge.cv2_to_imgmsg(result1, "8UC3"))
+      #self.image_pub.publish(self.bridge.cv2_to_imgmsg(result2, "8UC3"))
     except CvBridgeError as e:
       print(e)
 
 def main(args):
-  rospy.init_node('image_converter', anonymous=True)
+  td = tag_detector()
+  rospy.init_node('tag_detector', anonymous=True)
   try:
     rospy.spin()
   except KeyboardInterrupt:

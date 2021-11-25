@@ -1,4 +1,4 @@
 <launch>
     <include file="$(find testscripts)/launch/tag_world.launch"/>
-    <node pkg="testscripts" name="show_image" type="detect_tag.py" output="screen"/>
+    <node pkg="testscripts" name="detect_tag" type="detect_tag.py" output="screen"/>
 </launch>
