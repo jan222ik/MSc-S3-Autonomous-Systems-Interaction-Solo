@@ -50,6 +50,8 @@ class tag_detector:
     #cv2.imshow("TEST", cv_image)
     for c in contours:
       cv2.drawContours(result1, [c], 0, (0, 0, 0), 2)
+      #print(c)
+      #print(c[0])
       # get rotated rectangle from contour
       rot_rect = cv2.minAreaRect(c)
       box = cv2.boxPoints(rot_rect)
