@@ -1,4 +1,5 @@
 <launch>
     <include file="$(find testscripts)/launch/tag_world.launch"/>
+    <include file="$(find turtlebot3_slam)/launch/turtlebot3_slam.launch"/>
     <node pkg="testscripts" name="detect_tag" type="detect_tag.py" output="screen"/>
 </launch>
