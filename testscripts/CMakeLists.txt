@@ -10,6 +10,8 @@ project(testscripts)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
+  tf
+  geometry_msgs
   std_msgs
   cv_bridge
 )
@@ -163,6 +165,7 @@ include_directories(
 catkin_install_python(PROGRAMS
    src/testscripts/driveforward.py
    src/testscripts/show_image.py
+   src/testscripts/detect_tag.py
    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
@@ -206,3 +209,8 @@ catkin_install_python(PROGRAMS
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
+add_executable(tf_broadcaster src/testscripts/tf_broadcaster.cpp)
+add_executable(tf_listener src/testscripts/tf_listener.cpp)
+target_link_libraries(tf_broadcaster ${catkin_LIBRARIES})
+target_link_libraries(tf_listener ${catkin_LIBRARIES})
+
