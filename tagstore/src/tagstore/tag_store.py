@@ -4,6 +4,8 @@ import os
 import rospy
 from visualization_msgs.msg import Marker, MarkerArray
 from nav_msgs.msg import OccupancyGrid, MapMetaData
+from std_msgs.msg import Bool
+from tagstore.srv import TagstoreAddTag, TagstoreAddTagResponse
 
 class Tagstore:
 
@@ -18,6 +20,8 @@ class Tagstore:
         self.mapInfo = MapMetaData()
         self.mapInfo = rospy.wait_for_message("map", OccupancyGrid).info
         self.rvisMarkerArray = MarkerArray()
+
+        self.srvAddTag = rospy.Service("tagstore-addtag", TagstoreAddTag, self._srvAddTag)
 
         self._loadTagsFromFile()
 
@@ -66,29 +70,59 @@ class Tagstore:
         except IOError:
             rospy.logerr("Tagstore: File for tags not found.")
 
+    def _srvAddTag(self, srvData):
+        x = srvData.x
+        y = srvData.y
+
+        findExisting = self._findTagAt(x, y)
+        res = Bool()
+        res.data = False
+
+        if findExisting is None:
+            tag = Tag(x, y, len(self.tagsList) + 1)
+            self.tagsList.append(tag)
+            self._publishRvisPoints(tag)
+            res.data = True
+
+        rospy.logdebug("Tagstore > Service > AddTag: Res success?: {}".format(res.data))
+        return TagstoreAddTagResponse(res)
+
+    def _findTagAt(self, x, y):
+        tagDetectRadius = 10
+        for tag in self.tagsList:
+            if tag.checkXY(x, y, tagDetectRadius):
+                return tag
+        return None
+
+
     def _publishRvisPoints(self, tag):
         """
         Publish Tag Position for RVIS.
         """
         rospy.loginfo("Tagstore: Publish Tag to RVis: {}".format(tag.asCSV()))
         marker = Marker()
-        marker.header.frame_id = "base_link"
+        marker.header.frame_id = "map"
         marker.type = marker.SPHERE
         marker.action = marker.ADD
         marker.scale.x = 1
         marker.scale.y = 1
-        marker.scale.z = 10
+        marker.scale.z = 1
         marker.color.r = 1.0
-        marker.color.g = 0
+        marker.color.g = 1.0
         marker.color.b = 0
         marker.color.a = 1.0
         marker.pose.orientation.w = 1.0
-        marker.pose.position.x = (tag.x * self.mapInfo.resolution) + self.mapInfo.origin.position.x
-        marker.pose.position.y = (tag.y * self.mapInfo.resolution) + self.mapInfo.origin.position.y
+        marker.pose.position.x = tag.x * self.mapInfo.resolution + self.mapInfo.origin.position.x
+        marker.pose.position.y = tag.y * self.mapInfo.resolution + self.mapInfo.origin.position.y
         marker.pose.position.z = 1
-        marker.id = tag.globalId
+
 
         self.rvisMarkerArray.markers.append(marker)
+        idx = 0
+        for m in self.rvisMarkerArray.markers:
+            m.id = idx
+            idx+=1
+
         self.rvisPointPublisher.publish(self.rvisMarkerArray)
 
         rospy.sleep(0.01)
@@ -107,6 +141,15 @@ class Tag:
 
     def asCSV(self):
         return str(self.x) + "," + str(self.y) + "," + str(self.globalId)
+
+    def checkX(self, x, detectRadius):
+        return x in range(self.x - detectRadius, self.x + detectRadius)
+
+    def checkY(self, y, detectRadius):
+        return y in range(self.y - detectRadius, self.y + detectRadius)
+
+    def checkXY(self, x, y, detectRadius):
+        return self.checkX(x, detectRadius) and self.checkY(y, detectRadius)
 
 
 
