@@ -88,7 +88,7 @@ class Tagstore:
         return TagstoreAddTagResponse(res)
 
     def _findTagAt(self, x, y):
-        tagDetectRadius = 10
+        tagDetectRadius = 10 * self.mapInfo.resolution
         for tag in self.tagsList:
             if tag.checkXY(x, y, tagDetectRadius):
                 return tag
@@ -102,11 +102,12 @@ class Tagstore:
         rospy.loginfo("Tagstore: Publish Tag to RVis: {}".format(tag.asCSV()))
         marker = Marker()
         marker.header.frame_id = "map"
-        marker.type = marker.SPHERE
+        marker.ns = "rvismarker"
+        marker.type = marker.CUBE
         marker.action = marker.ADD
-        marker.scale.x = 1
-        marker.scale.y = 1
-        marker.scale.z = 1
+        marker.scale.x = 0.1
+        marker.scale.y = 0.1
+        marker.scale.z = 0.1
         marker.color.r = 1.0
         marker.color.g = 1.0
         marker.color.b = 0
@@ -143,10 +144,14 @@ class Tag:
         return str(self.x) + "," + str(self.y) + "," + str(self.globalId)
 
     def checkX(self, x, detectRadius):
-        return x in range(self.x - detectRadius, self.x + detectRadius)
+        lower = self.x - detectRadius
+        upper = self.x + detectRadius
+        return lower <= x <= upper
 
     def checkY(self, y, detectRadius):
-        return y in range(self.y - detectRadius, self.y + detectRadius)
+        lower = self.y - detectRadius
+        upper = self.y + detectRadius
+        return lower <= y <= upper
 
     def checkXY(self, x, y, detectRadius):
         return self.checkX(x, detectRadius) and self.checkY(y, detectRadius)
