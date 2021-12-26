@@ -6,6 +6,7 @@ from visualization_msgs.msg import Marker, MarkerArray
 from nav_msgs.msg import OccupancyGrid, MapMetaData
 from std_msgs.msg import Bool
 from tagstore.srv import TagstoreAddTag, TagstoreAddTagResponse
+from tagstore.srv import TagstoreResetRVis, TagstoreResetRVisResponse
 
 class Tagstore:
 
@@ -22,6 +23,7 @@ class Tagstore:
         self.rvisMarkerArray = MarkerArray()
 
         self.srvAddTag = rospy.Service("tagstore-addtag", TagstoreAddTag, self._srvAddTag)
+        self.srvResetRVisMarkers = rospy.Service("tagstore-reset-rvis-markers", TagstoreResetRVis, self._srvResetRVisMarkers)
 
         self._loadTagsFromFile()
 
@@ -94,6 +96,18 @@ class Tagstore:
                 return tag
         return None
 
+    def _srvResetRVisMarkers(self, data):
+        idx = 0
+        for m in self.rvisMarkerArray.markers:
+            m.id = idx
+            idx += 1
+
+        self.rvisPointPublisher.publish(self.rvisMarkerArray)
+
+        rospy.sleep(0.01)
+        res = Bool()
+        res.data = True
+        return TagstoreResetRVisResponse(res)
 
     def _publishRvisPoints(self, tag):
         """
@@ -116,17 +130,9 @@ class Tagstore:
         marker.pose.position.x = tag.x * self.mapInfo.resolution + self.mapInfo.origin.position.x
         marker.pose.position.y = tag.y * self.mapInfo.resolution + self.mapInfo.origin.position.y
         marker.pose.position.z = 1
-
-
         self.rvisMarkerArray.markers.append(marker)
-        idx = 0
-        for m in self.rvisMarkerArray.markers:
-            m.id = idx
-            idx+=1
 
-        self.rvisPointPublisher.publish(self.rvisMarkerArray)
-
-        rospy.sleep(0.01)
+        self._srvResetRVisMarkers(None)
 
 
 

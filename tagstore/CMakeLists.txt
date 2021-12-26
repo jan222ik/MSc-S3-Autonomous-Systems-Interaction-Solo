@@ -60,6 +60,7 @@ add_service_files(
     srv
     FILES
     TagstoreAddTag.srv
+    TagstoreResetRVis.srv
 )
 
 ## Generate actions in the 'action' folder
