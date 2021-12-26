@@ -1,0 +1,3 @@
+<launch>
+    <node name="tagstore1" pkg="tagstore" type="tag_store.py" output="screen"/>
+</launch>
