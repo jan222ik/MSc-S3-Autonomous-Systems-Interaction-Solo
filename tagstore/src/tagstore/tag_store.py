@@ -7,6 +7,8 @@ from nav_msgs.msg import OccupancyGrid, MapMetaData
 from std_msgs.msg import Bool
 from tagstore.srv import TagstoreAddTag, TagstoreAddTagResponse
 from tagstore.srv import TagstoreResetRVis, TagstoreResetRVisResponse
+from tagstore.srv import TagstoreAllTags, TagstoreAllTagsResponse
+from tagstore.msg import Tag as MsgTag
 
 class Tagstore:
 
@@ -24,6 +26,7 @@ class Tagstore:
 
         self.srvAddTag = rospy.Service("tagstore-addtag", TagstoreAddTag, self._srvAddTag)
         self.srvResetRVisMarkers = rospy.Service("tagstore-reset-rvis-markers", TagstoreResetRVis, self._srvResetRVisMarkers)
+        self.srvAllTags = rospy.Service("tagstore-alltags", TagstoreAllTags, self._srvAllTags)
 
         self._loadTagsFromFile()
 
@@ -109,6 +112,13 @@ class Tagstore:
         res.data = True
         return TagstoreResetRVisResponse(res)
 
+    def _srvAllTags(self, data):
+        res = TagstoreAllTagsResponse()
+        for tag in self.tagsList:
+            res.tags.append(tag.toMsgTag())
+        return res
+
+
     def _publishRvisPoints(self, tag):
         """
         Publish Tag Position for RVIS.
@@ -162,6 +172,12 @@ class Tag:
     def checkXY(self, x, y, detectRadius):
         return self.checkX(x, detectRadius) and self.checkY(y, detectRadius)
 
+    def toMsgTag(self):
+        msg = MsgTag()
+        msg.x = self.x
+        msg.y = self.y
+        msg.global_id = self.globalId
+        return msg
 
 
 

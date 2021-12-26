@@ -17,3 +17,5 @@ rosservice call /tagstore-reset-rvis-markers
 rosservice call /tagstore-addtag -- 150 150
 
 
+# Service call to get all tags from store
+rosservice call /tagstore-alltags
