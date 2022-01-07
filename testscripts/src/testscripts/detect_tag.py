@@ -19,10 +19,20 @@ class tag_detector:
     # self.image_grey_pub = rospy.Publisher("/rupp/image_topic_grey",Image)
     self.bridge = CvBridge()
     self.image_sub = rospy.Subscriber("/camera/rgb/image_raw",Image,self.callback)
+    self.depth_sub = rospy.Subscriber("/camera/depth/image_raw", Image, self.depth_callback)
     #self.camera_param_desc = rospy.Subscriber("/camera/parameter_descriptions", self.param_callback)
     self.camera_rgb_info = rospy.Subscriber("/camera/rgb/camera_info", CameraInfo, self.cam_callback)
     self.cam = PinholeCameraModel()
     self.not_cam_setup = True
+    self.depth_image = None
+
+  def depth_callback(self, data):
+    try:
+        NewImg = self.bridge.imgmsg_to_cv2(data, "passthrough")
+        self.depth_image = NewImg
+        cv2.imshow("depth.png", NewImg)
+    except CvBridgeError as e:
+        print(e)
 
   def cam_callback(self, data):
     if self.not_cam_setup:
@@ -63,10 +73,14 @@ class tag_detector:
       print(c[:][0][0])
       x = c[0][0][0]
       y = c[0][0][1]
+      depth_at_point = self.depth_image[x, y]
+      print(depth_at_point)
       cv2.circle(cv_image, (x, y), 20, (0, 255, 0))
       rect_point = self.cam.rectifyPoint((x, y))
-      cam_point = self.cam.projectPixelTo3dRay(rect_point)
-      print((x, y), ", with image_geometry: ", cam_point)
+      cam_ray = np.array(self.cam.projectPixelTo3dRay(rect_point))
+      print((x, y), ", with image_geometry: ", cam_ray)
+      cam_point = cam_ray * depth_at_point
+      print("POINT IN COORDINATES: ", cam_point)
       # get rotated rectangle from contour
       rot_rect = cv2.minAreaRect(c)
       box = cv2.boxPoints(rot_rect)
