@@ -1,0 +1,8 @@
+# Inputs
+TraversalPoint[] traversal_points
+---
+# Result
+std_msgs/Bool traversal_has_finished
+---
+# Feedback
+int32 current_traversal_idx
