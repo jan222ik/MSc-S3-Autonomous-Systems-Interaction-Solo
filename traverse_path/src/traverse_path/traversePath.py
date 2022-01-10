@@ -4,11 +4,13 @@ import rospy
 import actionlib
 #import tf
 from nav_msgs.msg import OccupancyGrid, MapMetaData # , Odometry
-#from std_msgs.msg import Header
+from std_msgs.msg import Bool
 from visualization_msgs.msg import Marker, MarkerArray
 #from transformations_odom.msg import PoseInMap
-from traverse_path.msg import TraversePathAction, TraversePathActionResult, TraversePathActionFeedback
+from traverse_path.msg import TraversePathAction, TraversePathActionResult, TraversePathActionFeedback, TraversePathResult
 
+
+# noinspection DuplicatedCode
 class TraversePath:
 
     def __init__(self):
@@ -33,18 +35,20 @@ class TraversePath:
         self._scheduleNextGoal()
 
         result = TraversePathActionResult()
+        result.result = TraversePathResult()
+        result.result.traversal_has_finished = Bool()
         feedback = TraversePathActionFeedback()
 
-        while not rospy.is_shutdown() and self.externalCancel:
+        while not rospy.is_shutdown() and not self.externalCancel:
             if self.actionServer.is_preempt_requested():
                 rospy.loginfo("TraversePath: Requested Cancel")
                 self.externalCancel = True
 
             feedback.feedback.current_traversal_idx = self.traversalIdx
-            self.actionServer.publish_feedback(feedback)
+            self.actionServer.publish_feedback(feedback.feedback)
 
         result.result.traversal_has_finished.data = not self.traversalIdx < len(self.traversalPoints)
-        self.actionServer.set_succeeded(result)
+        self.actionServer.set_succeeded(result.result)
 
 
 
@@ -69,9 +73,10 @@ class TraversePath:
             marker.ns = "rvismarker_traversal"
             marker.type = marker.CUBE
             marker.action = marker.ADD
-            marker.scale.x = 0.1
-            marker.scale.y = 0.1
-            marker.scale.z = 0.1
+            scale = 1
+            marker.scale.x = scale
+            marker.scale.y = scale
+            marker.scale.z = scale
             marker.color.r = 0
             marker.color.g = 0
             marker.color.b = 1.0
@@ -80,10 +85,10 @@ class TraversePath:
             marker.pose.position.x = point.x * self.mapInfo.resolution + self.mapInfo.origin.position.x
             marker.pose.position.y = point.y * self.mapInfo.resolution + self.mapInfo.origin.position.y
             marker.pose.position.z = 1
-            markers.append(marker)
+            markers.markers.append(marker)
 
         idx = 0
-        for m in markers:
+        for m in markers.markers:
             m.id = idx
             idx += 1
 

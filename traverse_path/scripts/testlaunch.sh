@@ -1,5 +1,6 @@
 # Start World in Gazebo
 roslaunch turtlebot3_gazebo turtlebot3_house.launch
+roslaunch turtlebot3_gazebo turtlebot3_empty.launch
 
 # Start SLAM
 roslaunch turtlebot3_slam turtlebot3_slam.launch slam_methods:=gmapping
