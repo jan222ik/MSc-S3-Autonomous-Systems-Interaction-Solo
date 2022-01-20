@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   std_msgs
+  geometry_msgs
   message_generation
 )
 
@@ -162,6 +163,7 @@ include_directories(
 ## in contrast to setup.py, you can choose the destination
  catkin_install_python(PROGRAMS
    src/map_handler.py
+   src/localize_robot.py
    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
  )
 

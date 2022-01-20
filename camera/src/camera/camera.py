@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 from __future__ import print_function
 
+import math
+
 import roslib
 # roslib.load_manifest('camera')
 import sys
@@ -20,19 +22,36 @@ class TagDetector:
 
     def __init__(self):
         self.image_pub = rospy.Publisher("/rupp/image_topic_tag", Image)
-        rospy.on_shutdown(self._shutdown)
+        # rospy.on_shutdown(self._shutdown)
         self.bridge = CvBridge()
         self.image_sub = rospy.Subscriber("/camera/rgb/image_raw", Image, self.callback)
         self.depth_sub = rospy.Subscriber("/camera/depth/image_raw", Image, self.depth_callback)
         self.pose_sub = rospy.Subscriber("/pose_in_map", PoseInMap, self.map_pose_callback)
         self.camera_rgb_info = rospy.Subscriber("/camera/rgb/camera_info", CameraInfo, self.cam_callback)
         self.cam = PinholeCameraModel()
+        self.camera_info = None
         self.mapInfo = MapMetaData()
         rospy.loginfo("Tagstore: Startup")
         self.not_cam_setup = True
         self.depth_image = None
         self.pose = None
         self.saved_map = False
+        #self._setup()
+
+    def _setup(self):
+        """
+        Get map meta information
+        """
+        resolution = 0
+        while resolution == 0:
+            map = rospy.wait_for_message('map', OccupancyGrid)
+            self.map_info = map.info
+            resolution = self.map_info.resolutionv
+
+    def _robo_map_pose(self, x, y):
+        robo_map_x = int(math.floor((x - self.map_info.origin.position.x) / self.map_info.resolution))
+        robo_map_y = int(math.floor((y - self.map_info.origin.position.y) / self.map_info.resolution))
+        return robo_map_x, robo_map_y
 
     def _shutdown(self):
         rospy.loginfo("Shutdown initiated, saving map...")
@@ -80,6 +99,7 @@ class TagDetector:
 
     def cam_callback(self, data):
         if self.not_cam_setup:
+            self.camera_info = data
             self.cam.fromCameraInfo(data)
             self.not_cam_setup = False
 
@@ -110,7 +130,7 @@ class TagDetector:
 
         result1 = cv_image.copy()
         result2 = cv_image.copy()
-        #cv2.imshow("TEST", cv_image)
+        # cv2.imshow("TEST", cv_image)
         for c in contours:
             cv2.drawContours(result1, [c], 0, (0, 0, 0), 2)
             # get first point of contour position
@@ -118,26 +138,35 @@ class TagDetector:
             y = c[0][0][1]
 
             # get depth at point
-            depth_at_point = self.depth_image[y, x]
+            depth_at_point = self.depth_image[x, y]
 
             # circle point in image (to check)
             cv2.circle(cv_image, (x, y), 20, (0, 255, 0))
 
+            world_cord = np.array([x, y, 1])
+            camera_info_array = np.asarray(self.camera_info.K)
+            cam_reshaped = np.reshape(camera_info_array, (3, 3))
+
+
+            print("WORLD CORD: ", world_cord)
+            world_cord = np.linalg.inv(cam_reshaped)*world_cord
+            world_cord *= depth_at_point*1000
+            print("NEW WORLD CORD: ", world_cord)
             # rectify image and get unit vector from camera to pixel
-            rect_point = self.cam.rectifyPoint((x, y))
-            cam_ray = np.array(self.cam.projectPixelTo3dRay(rect_point))
+            #rect_point = self.cam.rectifyPoint((x, y))
+            #cam_ray = np.array(self.cam.projectPixelTo3dRay(rect_point))
 
             # multiply unit vector with depth to get vector from camera to point in image
-            cam_point = cam_ray * depth_at_point
-
+            #cam_point = cam_ray * (1/depth_at_point)
+            #test_x, test_y = self._robo_map_pose(cam_point[0], cam_point[1])
             # add vector to pose
-            # TODO: transformation missing?
-            map_cam_point_x = int(self.pose[0] + (cam_point[0]))
-            map_cam_point_y = int(self.pose[1] + (cam_point[1]))
-            print("MAP_CAM_POINT: ", map_cam_point_x, ", ", map_cam_point_y)
+            #map_cam_point_x = int(self.pose[0] + cam_point[0])
+            #map_cam_point_y = int(self.pose[1] + cam_point[1])
 
             # add tag to tagstore
-            self.add_tag_with_tagstore(x, y)
+            #rospy.loginfo("NEW X AND Y: ", map_cam_point_x, ", ", map_cam_point_y)
+            #rospy.logdebug("TEST X: ", world_cord[0], ", TEST Y: ", world_cord[1])
+            self.add_tag_with_tagstore(int(world_cord[0]), int(world_cord[1]))
             # further image stuff, not needed right now
             # get rotated rectangle from contour
             # rot_rect = cv2.minAreaRect(c)
