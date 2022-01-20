@@ -2,11 +2,10 @@
 from __future__ import print_function
 
 import roslib
-# roslib.load_manifest('my_package')
+# roslib.load_manifest('camera')
 import sys
 import rospy
 import cv2
-from std_msgs.msg import String
 from sensor_msgs.msg import Image, CameraInfo
 from cv_bridge import CvBridge, CvBridgeError
 from nav_msgs.msg import OccupancyGrid, MapMetaData
@@ -14,7 +13,6 @@ from image_geometry.cameramodels import PinholeCameraModel
 from tagstore.srv import TagstoreAddTag, TagstoreResetRVis
 from transformations_odom.msg import PoseInMap
 import numpy as np
-from localization.srv import MapSaveLoad
 from subprocess import call
 
 
