@@ -1,0 +1,10 @@
+<launch>
+    <!--<include file="$(find localization)/launch/kidnap_world_moved_pos.launch"/>-->
+    <arg name="map_file" default="$(find localization)/maps/myMap.yaml"/>
+    <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)" />
+    <arg name="scan_topic" default="/scan"/>
+    <arg name="initial_pose_x" default="0.0"/>
+    <arg name="initial_pose_y" default="0.0"/>
+    <arg name="initial_pose_z" default="0.0"/>
+    <node pkg="amcl" type="amcl" name="amcl" />
+</launch>
