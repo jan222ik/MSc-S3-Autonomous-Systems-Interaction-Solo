@@ -1,10 +1,29 @@
 <launch>
     <!--<include file="$(find localization)/launch/kidnap_world_moved_pos.launch"/>-->
     <arg name="map_file" default="$(find localization)/maps/myMap.yaml"/>
-    <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)" />
-    <arg name="scan_topic" default="/scan"/>
+    <node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)" respawn="true"/>
+   <!-- <node pkg="amcl" type="amcl" name="amcl" output="screen">
+        <remap from="scan" to="scan"/>
+        <param name="odom_frame_id" value="odom"/>
+        <param name="odom_model_type" value="diff-corrected"/>
+        <param name="base_frame_id" value="base_link"/>
+        <param name="update_min_d" value="0.1"/>
+        <param name="update_min_a" value="0.2"/>
+        <param name="min_particles" value="500"/>
+        <param name="global_frame_id" value="map"/>
+        <param name="tf_broadcast" value="true" />
+        <param name="initial_pose_x" value="0.0"/>
+        <param name="initial_pose_y" value="0.0"/>
+        <param name="initial_pose_a" value="0.0"/>
+    </node> -->
     <arg name="initial_pose_x" default="0.0"/>
     <arg name="initial_pose_y" default="0.0"/>
-    <arg name="initial_pose_z" default="0.0"/>
-    <node pkg="amcl" type="amcl" name="amcl" />
+    <arg name="initial_pose_a" default="0.0"/>
+    <include file="$(find turtlebot3_navigation)launch/amcl.launch">
+        <arg name="initial_pose_x" value="$(arg initial_pose_x)"/>
+        <arg name="initial_pose_y" value="$(arg initial_pose_y)"/>
+        <arg name="initial_pose_a" value="$(arg initial_pose_a)"/>
+    </include>
+    <!-- <include file="$(find turtlebot3_navigation)/launch/move_base.launch"/> -->
+
 </launch>
