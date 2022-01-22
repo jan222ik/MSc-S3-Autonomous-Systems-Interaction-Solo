@@ -15,6 +15,7 @@
         <param name="tf-broadcast" value="true"/>
         <param name="first_map_only" value="true" />
     </node>
+    <node pkg="localization" type="localize_robot.py" name="localize_robot" output="screen"/>
 
       <!-- rviz -->
   <group if="$(arg open_rviz)">
