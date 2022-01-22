@@ -2,6 +2,7 @@
     <!--<include file="$(find localization)/launch/kidnap_world_moved_pos.launch"/>-->
     <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger, waffle, waffle_pi]"/>
     <arg name="map_file" default="$(find localization)/maps/myMap.yaml"/>
+    <arg name="open_rviz" default="true"/>
       <!-- TurtleBot3 -->
     <include file="$(find turtlebot3_bringup)/launch/turtlebot3_remote.launch">
         <arg name="model" value="$(arg model)" />
@@ -14,5 +15,11 @@
         <param name="tf-broadcast" value="true"/>
         <param name="first_map_only" value="true" />
     </node>
+
+      <!-- rviz -->
+  <group if="$(arg open_rviz)">
+    <node pkg="rviz" type="rviz" name="rviz" required="true"
+          args="-d $(find localization)/rviz/localization_sim.rviz"/>
+  </group>
 
 </launch>
