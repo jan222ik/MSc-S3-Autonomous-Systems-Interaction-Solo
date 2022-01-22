@@ -3,12 +3,12 @@ from __future__ import print_function
 
 import math
 
-import roslib
-# roslib.load_manifest('camera')
 import sys
 import rospy
 import cv2
+import tf
 from sensor_msgs.msg import Image, CameraInfo
+from geometry_msgs.msg import PointStamped
 from cv_bridge import CvBridge, CvBridgeError
 from nav_msgs.msg import OccupancyGrid, MapMetaData
 from image_geometry.cameramodels import PinholeCameraModel
@@ -103,6 +103,17 @@ class TagDetector:
             self.cam.fromCameraInfo(data)
             self.not_cam_setup = False
 
+    def convert_point(self, x, y, base_frame, target_frame):
+        listener = tf.TransformListener()
+        listener.waitForTransform(base_frame, target_frame, rospy.Time(0), rospy.Duration(4.0))
+        stamp_point = PointStamped()
+        stamp_point.header.frame_id = base_frame
+        stamp_point.header.stamp = rospy.Time(0)
+        stamp_point.point.x = x
+        stamp_point.point.y = y
+        stamp_point.point.z = 0.0
+        return listener.transformPoint(target_frame, stamp_point)
+
     def callback(self,data):
         try:
             cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
@@ -147,17 +158,24 @@ class TagDetector:
             camera_info_array = np.asarray(self.camera_info.K)
             cam_reshaped = np.reshape(camera_info_array, (3, 3))
 
-
+            #listener = tf.TransformListener()
+            #(trans, rot) = listener.lookupTransform("/camera_link", "/map", rospy.Time(0))
             print("WORLD CORD: ", world_cord)
             world_cord = np.linalg.inv(cam_reshaped)*world_cord
-            world_cord *= depth_at_point*1000
+            world_cord *= depth_at_point
             print("NEW WORLD CORD: ", world_cord)
             # rectify image and get unit vector from camera to pixel
-            #rect_point = self.cam.rectifyPoint((x, y))
-            #cam_ray = np.array(self.cam.projectPixelTo3dRay(rect_point))
+            rect_point = self.cam.rectifyPoint((x, y))
+            cam_ray = np.array(self.cam.projectPixelTo3dRay(rect_point))
+
+
 
             # multiply unit vector with depth to get vector from camera to point in image
-            #cam_point = cam_ray * (1/depth_at_point)
+            cam_point = cam_ray * (depth_at_point) * 1000
+
+            p = self.convert_point(cam_point[0], cam_point[1], "camera_link", "base_link")
+            pp = self.convert_point(p.point.x, p.point.y, "base_link", "map")
+            print("OOOOHHHHH: ", pp)
             #test_x, test_y = self._robo_map_pose(cam_point[0], cam_point[1])
             # add vector to pose
             #map_cam_point_x = int(self.pose[0] + cam_point[0])
@@ -166,7 +184,7 @@ class TagDetector:
             # add tag to tagstore
             #rospy.loginfo("NEW X AND Y: ", map_cam_point_x, ", ", map_cam_point_y)
             #rospy.logdebug("TEST X: ", world_cord[0], ", TEST Y: ", world_cord[1])
-            # self.add_tag_with_tagstore(int(world_cord[0]), int(world_cord[1]))
+            self.add_tag_with_tagstore(int(pp.point.x), int(pp.point.y))
             # further image stuff, not needed right now
             # get rotated rectangle from contour
             # rot_rect = cv2.minAreaRect(c)
