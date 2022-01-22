@@ -166,7 +166,7 @@ class TagDetector:
             # add tag to tagstore
             #rospy.loginfo("NEW X AND Y: ", map_cam_point_x, ", ", map_cam_point_y)
             #rospy.logdebug("TEST X: ", world_cord[0], ", TEST Y: ", world_cord[1])
-            self.add_tag_with_tagstore(int(world_cord[0]), int(world_cord[1]))
+            # self.add_tag_with_tagstore(int(world_cord[0]), int(world_cord[1]))
             # further image stuff, not needed right now
             # get rotated rectangle from contour
             # rot_rect = cv2.minAreaRect(c)
