@@ -12,7 +12,7 @@ roslaunch transformations_odom transformations_odom.launch
 
 
 # View Topic
-rostopic echo /pose_in_map
+rostopic echo /pose_tf
 
 
 # Drive Bot to better observe changes otherwise coordinates will stay the same

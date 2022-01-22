@@ -55,6 +55,7 @@ add_message_files(
   msg
   FILES
   PoseInMap.msg
+  PoseTF.msg
 )
 
 ## Generate services in the 'srv' folder
