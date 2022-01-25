@@ -1,0 +1,8 @@
+# goal definition
+float64 epsilon
+---
+# result definition
+localization/LocalizationState loc_end_state
+---
+# feedback definition
+localization/LocalizationState cur_loc_state

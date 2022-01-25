@@ -19,6 +19,8 @@ class Localizer:
         # --- Service ---
         rospy.wait_for_service('global_localization')
         self.global_localisation = rospy.ServiceProxy('global_localization', Empty)
+        self.pose = None
+        self.localized = False
 
     def pose_estimate_callback(self, estimated_pose):
         # Deconstructing PoseWithCovarianceStamped
@@ -52,10 +54,15 @@ class Localizer:
         cov_arr = np.asarray(covariance)
         cov_mat = np.reshape(cov_arr, (6, 6))
 
+        # Remember estimated pose (in case we finish localization)
+        self.pose = pose
+
+
+
+    def _locate_me(self):
         self.global_localisation()
 
-        if self._calc_cov_area(cov_mat) < self.epsilon:
-            print("LOCALIZED!!!!")
+
 
     def _calc_cov_area(self, cov_mat):
         """
