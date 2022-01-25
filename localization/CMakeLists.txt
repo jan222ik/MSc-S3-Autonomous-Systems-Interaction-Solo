@@ -165,6 +165,7 @@ include_directories(
  catkin_install_python(PROGRAMS
    src/map_handler.py
    src/localize_robot.py
+   src/localize_test_client.py
    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
  )
 
