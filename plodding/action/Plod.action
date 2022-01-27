@@ -1,0 +1,8 @@
+# Inputs
+geometry_msgs/Pose target
+---
+# Result
+std_msgs/Bool plod_has_finished
+---
+# Feedback
+std_msgs/String state

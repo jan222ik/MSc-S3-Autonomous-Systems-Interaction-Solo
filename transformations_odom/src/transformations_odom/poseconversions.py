@@ -4,7 +4,7 @@ import rospy
 import tf
 from nav_msgs.msg import Odometry, OccupancyGrid, MapMetaData
 from std_msgs.msg import Header
-from transformations_odom.msg import PoseInMap
+from transformations_odom.msg import PoseInMap, PoseTF
 
 
 class PoseConversions:
@@ -21,7 +21,7 @@ class PoseConversions:
 
         self.tfListener = tf.TransformListener()
 
-        self.pubPoseInMap = rospy.Publisher("pose_in_map", PoseInMap, queue_size=10)
+        self.pubPoseInMap = rospy.Publisher("pose_tf", PoseTF, queue_size=10)
 
         self.subRobotPose = rospy.Subscriber('odom', Odometry, self._subNextPose)
 
@@ -31,13 +31,12 @@ class PoseConversions:
         rospy.spin()
 
 
-    def _subNextPose(self, pose):
+    def _subNextPose(self, odom):
         """
         Callback of pose subscriber.
         Converts the current position of the robot in the map.
         """
         try:
-            rospy.logdebug("PoseConversions: Next Pose")
             atTimeStamp = self.tfListener.getLatestCommonTime(self.mapFrame, self.robotFrame)
             pos, quad = self.tfListener.lookupTransform(self.mapFrame, self.robotFrame, atTimeStamp)
 
@@ -45,9 +44,15 @@ class PoseConversions:
             mapPose = PoseInMap()
             mapPose.x = (pos[0] - self.mapInfo.origin.position.x) / resolution
             mapPose.y = (pos[1] - self.mapInfo.origin.position.y) / resolution
-            mapPose.header.seq = 0
-            mapPose.header.stamp = rospy.Time.now()
-            self.pubPoseInMap.publish(mapPose)
+            mapPose.angle = tf.transformations.euler_from_quaternion(quad)[2]
+
+            msg = PoseTF()
+            msg.header.seq = 0
+            msg.header.stamp = rospy.Time.now()
+            msg.originalPose = odom.pose.pose
+            msg.mapPose = mapPose
+            self.pubPoseInMap.publish(msg)
+            rospy.logdebug("PoseConversions: Next Pose -> {}".format(mapPose))
         except tf.Exception:
             rospy.logwarn("PoseConversions: Transform between /odom and /map is not ready")
 

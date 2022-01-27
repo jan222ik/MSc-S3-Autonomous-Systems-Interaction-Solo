@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(transformations_odom)
+project(traverse_path)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 # add_compile_options(-std=c++11)
@@ -8,11 +8,11 @@ project(transformations_odom)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-  geometry_msgs
-  message_generation
-  nav_msgs
   roscpp
   rospy
+  message_generation
+  genmsg
+  actionlib_msgs
   std_msgs
 )
 
@@ -54,8 +54,7 @@ add_message_files(
   DIRECTORY
   msg
   FILES
-  PoseInMap.msg
-  PoseTF.msg
+  TraversalPoint.msg
 )
 
 ## Generate services in the 'srv' folder
@@ -66,18 +65,18 @@ add_message_files(
 # )
 
 ## Generate actions in the 'action' folder
-# add_action_files(
-#   FILES
-#   Action1.action
-#   Action2.action
-# )
+add_action_files(
+  DIRECTORY
+  action
+  FILES
+  TraversePath.action
+)
 
 ## Generate added messages and services with any dependencies listed here
 generate_messages(
-   DEPENDENCIES
-   geometry_msgs
-   nav_msgs
-   std_msgs
+  DEPENDENCIES
+  std_msgs
+  actionlib_msgs
 )
 
 ################################################
@@ -110,10 +109,7 @@ generate_messages(
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES transformations_odom
-#  CATKIN_DEPENDS geometry_msgs message_generation nav_msgs roscpp rospy std_msgs
-#  DEPENDS system_lib
+  CATKIN_DEPENDS actionlib_msgs std_msgs message_runtime
 )
 
 ###########
@@ -129,7 +125,7 @@ include_directories(
 
 ## Declare a C++ library
 # add_library(${PROJECT_NAME}
-#   src/${PROJECT_NAME}/transformations_odom.cpp
+#   src/${PROJECT_NAME}/traverse_path.cpp
 # )
 
 ## Add cmake target dependencies of the library
@@ -140,7 +136,7 @@ include_directories(
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
-# add_executable(${PROJECT_NAME}_node src/transformations_odom_node.cpp)
+# add_executable(${PROJECT_NAME}_node src/traverse_path_node.cpp)
 
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
@@ -167,8 +163,8 @@ include_directories(
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
 catkin_install_python(PROGRAMS
-   src/transformations_odom/poseconversions.py
-   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+  src/traverse_path/traversePath.py
+  DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
 
 ## Mark executables for installation
@@ -204,7 +200,7 @@ catkin_install_python(PROGRAMS
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_transformations_odom.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_traverse_path.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()
