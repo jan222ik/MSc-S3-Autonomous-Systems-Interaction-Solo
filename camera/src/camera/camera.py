@@ -10,7 +10,7 @@ import tf
 from sensor_msgs.msg import Image, CameraInfo, CompressedImage
 from geometry_msgs.msg import PointStamped
 from cv_bridge import CvBridge, CvBridgeError
-from nav_msgs.msg import OccupancyGrid, MapMetaData
+from nav_msgs.msg import OccupancyGrid, MapMetaData, Odometry
 from image_geometry.cameramodels import PinholeCameraModel
 from tagstore.srv import TagstoreAddTag, TagstoreResetRVis
 from transformations_odom.msg import PoseInMap
@@ -21,47 +21,33 @@ from subprocess import call
 class TagDetector:
 
     def __init__(self):
+        rospy.init_node('tag_detector', anonymous=True)
+        self.mapInfo = MapMetaData()
+        self.mapInfo = rospy.wait_for_message("map", OccupancyGrid).info
         self.is_calculating = False
         self.image_pub = rospy.Publisher("/rupp/image_topic_tag", Image)
         # rospy.on_shutdown(self._shutdown)
         self.bridge = CvBridge()
-        self.image_sub = rospy.Subscriber("/raspicam_node/image/compressed", CompressedImage, self.callback)
+        # self.odom_sub = rospy.Subscriber("/odom", Odometry, self.odom_callback)
+        self.raspi_sub = rospy.Subscriber("/raspicam_node/image/compressed", CompressedImage, self.raspi_callback)
+        self.image_sub = rospy.Subscriber("/camera/rgb/image_raw", Image, self.img_raw_callback)
         self.depth_sub = rospy.Subscriber("/camera/depth/image_raw", Image, self.depth_callback)
-        self.pose_sub = rospy.Subscriber("/pose_in_map", PoseInMap, self.map_pose_callback)
         self.camera_rgb_info = rospy.Subscriber("/camera/rgb/camera_info", CameraInfo, self.cam_callback)
         self.cam = PinholeCameraModel()
         self.camera_info = None
-        self.mapInfo = MapMetaData()
-        rospy.loginfo("Tagstore: Startup")
         self.not_cam_setup = True
         self.depth_image = None
         self.pose = None
         self.saved_map = False
-        #self._setup()
+        self.cur_pose = None
         print("Setup done")
-
-    def _setup(self):
-        """
-        Get map meta information
-        """
-        resolution = 0
-        while resolution == 0:
-            map = rospy.wait_for_message('map', OccupancyGrid)
-            self.map_info = map.info
-            resolution = self.map_info.resolutionv
-
-    def _robo_map_pose(self, x, y):
-        robo_map_x = int(math.floor((x - self.map_info.origin.position.x) / self.map_info.resolution))
-        robo_map_y = int(math.floor((y - self.map_info.origin.position.y) / self.map_info.resolution))
-        return robo_map_x, robo_map_y
-
-    def _shutdown(self):
-        rospy.loginfo("Shutdown initiated, saving map...")
-        # self.map_save_load_test('testMap', 0)
-        call('bash rosrun map_server map_saver -f ~/catkin_ws/src/MSc-S3-Autonomous-Systems-Interaction-Solo/localization/maps/testTestMap')
 
     def map_pose_callback(self, data):
         self.pose = (data.x, data.y)
+
+    def odom_callback(self, data):
+        point = data.pose.pose.position
+        self.cur_pose = self.convert_point(point.x, point.y, 'odom', 'camera_link')
 
     def map_save_load_test(self, map_name, mode):
         rospy.wait_for_service("/map_save_load")
@@ -115,6 +101,72 @@ class TagDetector:
         stamp_point.point.y = y
         stamp_point.point.z = 0.0
         return listener.transformPoint(target_frame, stamp_point)
+
+    def raspi_callback(self, data):
+        cv_image = self.bridge.compressed_imgmsg_to_cv2(data, "bgr8")
+        self.do_detection(cv_image)
+
+    def img_raw_callback(self, data):
+        cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
+        self.do_detection(cv_image)
+
+    def do_detection(self, cv_image):
+        hsv = cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV)
+
+        # create a binary thresholded image on hue between red and yellow
+        lower = (0, 100, 100)
+        upper = (40, 255, 255)
+        thresh = cv2.inRange(hsv, lower, upper)
+
+        # apply morphology
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))
+        clean = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
+        clean = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
+
+        # get external contours
+        contours = cv2.findContours(clean, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        contours = contours[0] if len(contours) == 2 else contours[1]
+
+        result1 = cv_image.copy()
+        result2 = cv_image.copy()
+        # cv2.imshow("TEST", cv_image)
+        # print("TEST")
+        for c in contours:
+            cv2.drawContours(result1, [c], 0, (0, 0, 0), 2)
+            # get first point of contour position
+            x = c[0][0][0]
+            y = c[0][0][1]
+            print(self.mapInfo)
+
+            # get depth at point
+            depth_at_point = self.depth_image[x, y]
+
+            # circle point in image (to check)
+            cv2.circle(cv_image, (x, y), 20, (0, 255, 0))
+
+            rect_point = self.cam.rectifyPoint((x, y))
+            cam_ray = np.array(self.cam.projectPixelTo3dRay(rect_point))
+            cam_point = cam_ray * depth_at_point
+
+            # cur_point = (self.cur_pose.point.x + cam_point[0], self.cur_pose.point.y + cam_point[1])
+
+            p = self.convert_point(cam_point[0], cam_point[1], "camera_link", "map")
+
+            map_x = p.point.x
+            map_y = p.point.y
+
+            # TODO: not quite right, find error and fix!
+            if self.mapInfo.resolution > 0:
+                grid_x = ((map_x - self.mapInfo.origin.position.x) / self.mapInfo.resolution)
+                grid_y = ((map_y - self.mapInfo.origin.position.y) / self.mapInfo.resolution)
+
+                print("X: ", grid_x, ", Y: ", grid_y)
+
+                self.add_tag_with_tagstore(int(grid_x) + 1, int(grid_y) + 1)
+
+        cv2.imshow("image", cv_image)
+        cv2.waitKey(3)
 
     def callback(self,data):
         if self.is_calculating:
@@ -229,7 +281,6 @@ class TagDetector:
 
 def main(args):
     td = TagDetector()
-    rospy.init_node('tag_detector', anonymous=True)
     try:
         rospy.spin()
     except KeyboardInterrupt:
