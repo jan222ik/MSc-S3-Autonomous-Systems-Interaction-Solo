@@ -37,7 +37,6 @@ class PoseConversions:
         Converts the current position of the robot in the map.
         """
         try:
-            rospy.logdebug("PoseConversions: Next Pose")
             atTimeStamp = self.tfListener.getLatestCommonTime(self.mapFrame, self.robotFrame)
             pos, quad = self.tfListener.lookupTransform(self.mapFrame, self.robotFrame, atTimeStamp)
 
@@ -53,6 +52,7 @@ class PoseConversions:
             msg.originalPose = odom.pose.pose
             msg.mapPose = mapPose
             self.pubPoseInMap.publish(msg)
+            rospy.logdebug("PoseConversions: Next Pose -> {}".format(mapPose))
         except tf.Exception:
             rospy.logwarn("PoseConversions: Transform between /odom and /map is not ready")
 
