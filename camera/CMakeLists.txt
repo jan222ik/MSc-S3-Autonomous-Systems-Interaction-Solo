@@ -165,6 +165,7 @@ include_directories(
  catkin_install_python(PROGRAMS
    src/camera/camera.py
    src/camera/camera_blob.py
+   src/camera/wall_follow.py
    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
  )
 

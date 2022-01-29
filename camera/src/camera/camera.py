@@ -81,7 +81,7 @@ class TagDetector:
         try:
             NewImg = self.bridge.imgmsg_to_cv2(data, "passthrough")
             self.depth_image = NewImg
-            # cv2.imshow("depth.png", NewImg)
+            cv2.imshow("depth.png", NewImg)
         except CvBridgeError as e:
             print(e)
 
@@ -164,7 +164,8 @@ class TagDetector:
                 print("X: ", grid_x, ", Y: ", grid_y)
 
                 self.add_tag_with_tagstore(int(grid_x) + 1, int(grid_y) + 1)
-
+        #cv2.imshow("depth", self.depth_image)
+        # rospy.sleep(10.0)
         cv2.imshow("image", cv_image)
         cv2.waitKey(3)
 
