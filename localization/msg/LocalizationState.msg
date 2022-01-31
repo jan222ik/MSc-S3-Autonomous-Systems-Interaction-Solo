@@ -1,0 +1,3 @@
+geometry_msgs/PoseWithCovariance pose_w_cov
+float64 ellipse_area
+float64 epsilon

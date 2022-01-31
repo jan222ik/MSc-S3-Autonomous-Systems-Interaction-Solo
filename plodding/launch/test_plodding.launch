@@ -1,10 +1,7 @@
 <launch>
-    <include file="$(find testscripts)/launch/tag_world.launch"/>
     <include file="$(find turtlebot3_slam)/launch/turtlebot3_slam.launch">
         <arg name="slam_methods" value="gmapping"/>
     </include>
     <include file="$(find tagstore)/launch/tagstore.launch"/>
-    <node pkg="localization" name="map_handler" type="map_handler.py" output="screen"/>
     <node pkg="transformations_odom" name="tf_odom" type="poseconversions.py" output="screen"/>
-    <node pkg="testscripts" name="detect_tag" type="detect_tag.py" output="screen"/>
 </launch>
