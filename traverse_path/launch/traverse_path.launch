@@ -1,0 +1,3 @@
+<launch>
+    <node pkg="traverse_path" type="traversePath.py" name="traverse_path1" output="screen"/>
+</launch>
