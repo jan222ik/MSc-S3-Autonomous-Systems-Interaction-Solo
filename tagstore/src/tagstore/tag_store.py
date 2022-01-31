@@ -16,7 +16,7 @@ class Tagstore:
         rospy.init_node('tagstore', log_level=rospy.DEBUG, anonymous=True)
         rospy.on_shutdown(self._shutdown)
         rospy.loginfo("Tagstore: Startup")
-        self.tagsPath = rospy.get_param("~tagsFilepath", default = "/home/jan/catkin_ws/exec/tags.csv")
+        self.tagsPath = rospy.get_param("~tagsFilepath", default = "/home/rosuser/catkin_ws/exec/tags.csv")
         self.tagsList = []
 
         self.rvisPointPublisher = rospy.Publisher("visualization_marker_array", MarkerArray, queue_size=100)

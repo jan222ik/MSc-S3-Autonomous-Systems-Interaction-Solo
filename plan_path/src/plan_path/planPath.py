@@ -26,11 +26,10 @@ class PlanPath:
         client.wait_for_server()
 
         # Creates a goal to send to the action server.
-        l = [TraversalPoint(130, 220, 180), TraversalPoint(190, 210, 0), TraversalPoint(130, 220, 180)]
+        # l = [TraversalPoint(130, 220, 180), TraversalPoint(190, 210, 0), TraversalPoint(130, 220, 180)]
+        l = [TraversalPoint(190, 190, 180), TraversalPoint(170, 190, 0), TraversalPoint(160, 220, 180)]
         g = TraversePathGoal()
         g.traversal_points = l
-
-
 
         client.send_goal(g)
 
