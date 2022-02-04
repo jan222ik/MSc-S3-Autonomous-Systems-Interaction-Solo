@@ -17,6 +17,8 @@ from transformations_odom.msg import PoseInMap
 import numpy as np
 from subprocess import call
 
+resolY = 1250
+resolX = 750
 
 class TagDetector:
 
@@ -41,6 +43,8 @@ class TagDetector:
         self.saved_map = False
         self.cur_pose = None
         self.isActive = False
+        self.cam_resol_x = 0
+        self.cam_resol_y = 0
         print("Setup done")
 
     def map_pose_callback(self, data):
@@ -89,6 +93,8 @@ class TagDetector:
     def cam_callback(self, data):
         if self.not_cam_setup:
             self.camera_info = data
+            self.cam_resol_x = data.width
+            self.cam_resol_y = data.heigth
             self.cam.fromCameraInfo(data)
             self.not_cam_setup = False
 
@@ -112,88 +118,54 @@ class TagDetector:
         self.do_detection(cv_image)
 
     def img_raw_callback(self, data):
-        #if self.isActive:
-         #   return
-        #else:
-        #    self.isActive = True
+        if self.isActive:
+            return
+        else:
+            self.isActive = True
         cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
         self.do_detection(cv_image)
 
-    def do_detection(self, cv_image):
-        hsv = cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV)
-
-        # create a binary thresholded image on hue between red and yellow
-        lower = (0, 150, 150)
-        upper = (40, 255, 255)
-        thresh = cv2.inRange(hsv, lower, upper)
-
-        # apply morphology
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))
-        clean = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
-        clean = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
-
-        # get external contours
-        contours = cv2.findContours(clean, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        contours = contours[0] if len(contours) == 2 else contours[1]
-
-        result1 = cv_image.copy()
-        result2 = cv_image.copy()
-        # cv2.imshow("TEST", cv_image)
-        # print("TEST")
-        # loop over contours
-        for c in contours:
-            # compute the center of the contour
-            M = cv2.moments(c)
-            cX = int(M["m10"] / M["m00"])
-            cY = int(M["m01"] / M["m00"])
-            # draw the contour and center of the shape on the image
-            cv2.drawContours(cv_image, [c], -1, (0, 255, 0), 2)
-            cv2.circle(cv_image, (cX, cY), 7, (255, 255, 255), -1)
-            cv2.putText(cv_image, "center", (cX - 20, cY - 20),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-            # show the image
-            cv2.imshow("Image", cv_image)
-            cv2.waitKey(0)
-            """
-            cv2.drawContours(result1, [c], 0, (0, 0, 0), 2)
-            # get first point of contour position
-            x = c[0][0][0]
-            y = c[0][0][1]
-            print(self.mapInfo)
-
-            # get depth at point
-            depth_at_point = self.depth_image[x, y]
-
-            # circle point in image (to check)
-            cv2.circle(cv_image, (x, y), 20, (0, 255, 0))
-
-            rect_point = self.cam.rectifyPoint((x, y))
-            cam_ray = np.array(self.cam.projectPixelTo3dRay(rect_point))
-            cam_point = cam_ray * depth_at_point
-
-            # cur_point = (self.cur_pose.point.x + cam_point[0], self.cur_pose.point.y + cam_point[1])
-
-            p = self.convert_point(cam_point[0], cam_point[1], "camera_link", "map")
-
-            map_x = p.point.x
-            map_y = p.point.y
-
-            # TODO: not quite right, find error and fix!
-            if self.mapInfo.resolution > 0:
-                grid_x = ((map_x - self.mapInfo.origin.position.x) / self.mapInfo.resolution)
-                grid_y = ((map_y - self.mapInfo.origin.position.y) / self.mapInfo.resolution)
-
-                print("X: ", grid_x, ", Y: ", grid_y)
-
-                self.add_tag_with_tagstore(int(grid_x) + 1, int(grid_y) + 1)
+    def detectBox(self, image):
         """
-        #cv2.imshow("depth", self.depth_image)
-        # rospy.sleep(10.0)
-        cv2.imshow("image", cv_image)
+            looks in current image for a black blob on a red background, from left to right
+            :param
+                    image: PIL.Image
+                        a rgb image with black blobs on red background
+            :return
+                    int
+                        the center of the image or None if no image has been detected
+                    boolean
+                        true, if black blob found. Otherwise False
+            """
+        minBlobWidth = 5
+        xStart = -1
+        xCenter = [-1]
+        for y in range(self.cam_resol_y):
+            blobwidth = 0
+            for x in range(self.cam_resol_x):
+                # Note: order is Blue - Green - Red (BGR)
+                pixel = (image[y, x, 0], image[y, x, 1], image[y, x, 2])
+                if pixel == (0, 0, 255):  # red pixel: a tag!
+                    blobwidth += 1
+                    if blobwidth == 1:
+                        xStart = x
+                else:
+                    if blobwidth >= minBlobWidth:
+                        xCenter[0] = xStart + blobwidth / 2
+                        # print('blob detected at: ', xStart, y, ' with center at: ', xCenter[0])
+                        return xCenter[0], True
+                    elif blobwidth > 0:
+                        blobwidth = 0
+            if blobwidth >= minBlobWidth:
+                xCenter[0] = xStart + blobwidth / 2
+                # print('blob detected at: ', xStart, y, ' with center at: ', xCenter[0])
+                return xCenter[0], True
 
-        cv2.waitKey(3)
-        # self.isActive = False
+        return None, False
+
+    def do_detection(self, cv_image):
+        direction = self.detectBox(cv_image)
+
 
     def callback(self,data):
         if self.is_calculating:
@@ -231,8 +203,8 @@ class TagDetector:
         for c in contours:
             cv2.drawContours(result1, [c], 0, (0, 0, 0), 2)
             # get first point of contour position
-            y = c[0][0][0]
-            x = c[0][0][1]
+            x = c[0][0][0]
+            y = c[0][0][1]
 
             # get depth at point
             #depth_at_point = self.depth_image[x, y]
