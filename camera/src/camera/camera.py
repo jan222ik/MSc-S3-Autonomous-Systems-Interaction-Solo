@@ -17,7 +17,7 @@ from transformations_odom.msg import PoseInMap
 import numpy as np
 from subprocess import call
 
-RATE = 10
+RATE = 2
 class TagDetector:
 
     def __init__(self):
@@ -180,74 +180,86 @@ class TagDetector:
             # cv2.imshow("TEST", cv_image)
             # print("TEST")
             center_arr = []
+            (h, w) = cv_image.shape[:2]  # w:image-width and h:image-height
+            center_x = w//2
+            center_y = h//2
+            #tot_x = int(M_I["m10"] / M_I["m00"])
+            #tot_y = int(M_I["m01"] / M_I["m00"])
             # loop over contours
             for c in contours:
                 # compute the center of the contour
                 M = cv2.moments(c)
-                cX = int(M["m10"] / M["m00"])
-                cY = int(M["m01"] / M["m00"])
-                center_arr.append((cX, cY))
-                c_y = cv_image.shape[0]//2
-                c_x = cv_image.shape[1]//2
-                # draw the contour and center of the shape on the image
-                cv2.drawContours(cv_image, [c], -1, (0, 255, 0), 2)
-                cv2.circle(cv_image, (cX, cY), 7, (255, 255, 255), -1)
-                cv2.putText(cv_image, "center", (cX - 20, cY - 20),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-                cv2.circle(cv_image, (c_x, c_y), 7, (0, 0, 255), -1)
-                cv2.putText(cv_image, "center_image", (c_x - 20, c_y - 20),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+                if M["m00"] != 0.0:
+                    cX = int(M["m10"] / M["m00"])
+                    cY = int(M["m01"] / M["m00"])
+                    center_arr.append((cX, cY))
+                    c_y = cv_image.shape[0]//2
+                    c_x = cv_image.shape[1]//2
+                    # draw the contour and center of the shape on the image
+                    cv2.drawContours(cv_image, [c], -1, (0, 255, 0), 2)
+                    cv2.circle(cv_image, (cX, cY), 7, (255, 255, 255), -1)
+                    cv2.putText(cv_image, "center", (cX - 20, cY - 20),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+                    cv2.circle(cv_image, (center_x, h), 7, (0, 0, 255), -1)
+                    cv2.putText(cv_image, "center_image", (center_x - 20, h - 20),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+                    cv2.line(cv_image, (center_x, h), (cX, cY), (255, 0, 0), 2)
+                    print("cx: ", cX, ", cy: ", cY, ", center_x: ", center_x, ", center_y: ", center_y)
+                    line_len = np.linalg.norm(np.array((cX-center_x, cY-center_y)))
+                    line_angle = int((math.atan2((center_y - cY), (center_x - cX)) * 180 / math.pi))
+                    print("LINE_LENGTH: ", line_len)
+                    print("LINE_ANGLE: ", line_angle)
+                    """
+                    rect_point = self.cam.rectifyPoint((cX, cY))
+                    test_pt = self.calculate_3d_point(rect_point)
+                    new_x = self.cur_pose.point.x + test_pt.point.x
+                    new_y = self.cur_pose.point.y + test_pt.point.y
+                    print("TEST POINT: ", test_pt)
+                    p = self.convert_point_direct(test_pt, "map")
+                    print("CONVERTED POINT: ", p)
+                    map_x = new_x
+                    map_y = new_y
+                    if self.mapInfo.resolution > 0:
+                        grid_x = ((map_x - self.mapInfo.origin.position.x) / self.mapInfo.resolution)
+                        grid_y = ((map_y - self.mapInfo.origin.position.y) / self.mapInfo.resolution)
+        
+                        print("X: ", grid_x, ", Y: ", grid_y)
+        
+                        self.add_tag_with_tagstore(int(grid_y), int(grid_x))
+                    """
+                    """
+                    cv2.drawContours(result1, [c], 0, (0, 0, 0), 2)
+                    # get first point of contour position
+                    x = c[0][0][0]
+                    y = c[0][0][1]
+                    print(self.mapInfo)
+        
+                    # get depth at point
+                    depth_at_point = self.depth_image[x, y]
+        
+                    # circle point in image (to check)
+                    cv2.circle(cv_image, (x, y), 20, (0, 255, 0))
+        
+                    rect_point = self.cam.rectifyPoint((x, y))
+                    cam_ray = np.array(self.cam.projectPixelTo3dRay(rect_point))
+                    cam_point = cam_ray * depth_at_point
+        
+                    # cur_point = (self.cur_pose.point.x + cam_point[0], self.cur_pose.point.y + cam_point[1])
+        
+                    p = self.convert_point(cam_point[0], cam_point[1], "camera_link", "map")
+        
+                    map_x = p.point.x
+                    map_y = p.point.y
+        
+                    # TODO: not quite right, find error and fix!
+                    if self.mapInfo.resolution > 0:
+                        grid_x = ((map_x - self.mapInfo.origin.position.x) / self.mapInfo.resolution)
+                        grid_y = ((map_y - self.mapInfo.origin.position.y) / self.mapInfo.resolution)
+        
+                        print("X: ", grid_x, ", Y: ", grid_y)
+        
+                        self.add_tag_with_tagstore(int(grid_x) + 1, int(grid_y) + 1)
                 """
-                rect_point = self.cam.rectifyPoint((cX, cY))
-                test_pt = self.calculate_3d_point(rect_point)
-                new_x = self.cur_pose.point.x + test_pt.point.x
-                new_y = self.cur_pose.point.y + test_pt.point.y
-                print("TEST POINT: ", test_pt)
-                p = self.convert_point_direct(test_pt, "map")
-                print("CONVERTED POINT: ", p)
-                map_x = new_x
-                map_y = new_y
-                if self.mapInfo.resolution > 0:
-                    grid_x = ((map_x - self.mapInfo.origin.position.x) / self.mapInfo.resolution)
-                    grid_y = ((map_y - self.mapInfo.origin.position.y) / self.mapInfo.resolution)
-    
-                    print("X: ", grid_x, ", Y: ", grid_y)
-    
-                    self.add_tag_with_tagstore(int(grid_y), int(grid_x))
-                """
-                """
-                cv2.drawContours(result1, [c], 0, (0, 0, 0), 2)
-                # get first point of contour position
-                x = c[0][0][0]
-                y = c[0][0][1]
-                print(self.mapInfo)
-    
-                # get depth at point
-                depth_at_point = self.depth_image[x, y]
-    
-                # circle point in image (to check)
-                cv2.circle(cv_image, (x, y), 20, (0, 255, 0))
-    
-                rect_point = self.cam.rectifyPoint((x, y))
-                cam_ray = np.array(self.cam.projectPixelTo3dRay(rect_point))
-                cam_point = cam_ray * depth_at_point
-    
-                # cur_point = (self.cur_pose.point.x + cam_point[0], self.cur_pose.point.y + cam_point[1])
-    
-                p = self.convert_point(cam_point[0], cam_point[1], "camera_link", "map")
-    
-                map_x = p.point.x
-                map_y = p.point.y
-    
-                # TODO: not quite right, find error and fix!
-                if self.mapInfo.resolution > 0:
-                    grid_x = ((map_x - self.mapInfo.origin.position.x) / self.mapInfo.resolution)
-                    grid_y = ((map_y - self.mapInfo.origin.position.y) / self.mapInfo.resolution)
-    
-                    print("X: ", grid_x, ", Y: ", grid_y)
-    
-                    self.add_tag_with_tagstore(int(grid_x) + 1, int(grid_y) + 1)
-            """
             #cv2.imshow("depth", self.depth_image)
             # rospy.sleep(10.0)
             cv2.imshow("image", cv_image)
@@ -258,7 +270,7 @@ class TagDetector:
         else:
             self.rate_count += 1
 
-    def callback(self,data):
+    def callback(self, data):
         if self.is_calculating:
             return
         else:
