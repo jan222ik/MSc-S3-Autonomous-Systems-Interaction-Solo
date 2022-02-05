@@ -8,7 +8,7 @@ import rospy
 import cv2
 import tf
 from sensor_msgs.msg import Image, CameraInfo, CompressedImage
-from geometry_msgs.msg import PointStamped
+from geometry_msgs.msg import PointStamped, Twist
 from cv_bridge import CvBridge, CvBridgeError
 from nav_msgs.msg import OccupancyGrid, MapMetaData, Odometry
 from image_geometry.cameramodels import PinholeCameraModel
@@ -27,6 +27,7 @@ class TagDetector:
         self.is_calculating = False
         self.image_pub = rospy.Publisher("/rupp/image_topic_tag", Image)
         # rospy.on_shutdown(self._shutdown)
+        self.vel = rospy.Publisher('/cmd_vel', Twist, queue_size=1)
         self.bridge = CvBridge()
         # self.odom_sub = rospy.Subscriber("/odom", Odometry, self.odom_callback)
         self.raspi_sub = rospy.Subscriber("/raspicam_node/image/compressed", CompressedImage, self.raspi_callback)
@@ -45,6 +46,18 @@ class TagDetector:
         self.frame = ""
         self.rate_count = 0
         print("Setup done")
+
+    def turn_left(self):
+        twist = Twist()
+        twist.linear.x = 0.0
+        twist.angular.z = 0.1
+        self.vel.publish(twist)
+
+    def turn_right(self):
+        twist = Twist()
+        twist.linear.x = 0.0
+        twist.angular.z = -0.1
+        self.vel.publish(twist)
 
     def map_pose_callback(self, data):
         self.pose = (data.x, data.y)
@@ -150,6 +163,11 @@ class TagDetector:
          #   return
         #else:
         #    self.isActive = True
+        # stop turn from last round
+        twist = Twist()
+        twist.linear.x = 0.0
+        twist.angular.z = 0.0
+        self.vel.publish(twist)
         print("ROWS: ", data.width, ", COLS: ", data.height)
         cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
         self.do_detection(cv_image)
@@ -206,9 +224,18 @@ class TagDetector:
                     cv2.line(cv_image, (center_x, h), (cX, cY), (255, 0, 0), 2)
                     print("cx: ", cX, ", cy: ", cY, ", center_x: ", center_x, ", center_y: ", center_y)
                     line_len = np.linalg.norm(np.array((cX-center_x, cY-center_y)))
-                    line_angle = int((math.atan2((center_y - cY), (center_x - cX)) * 180 / math.pi))
+                    line_angle = int((math.atan2((cY - center_y), (cX - center_x)) * 180 / math.pi))
                     print("LINE_LENGTH: ", line_len)
                     print("LINE_ANGLE: ", line_angle)
+                    if line_angle > 90:
+                        self.turn_left()
+                    elif line_angle < 90:
+                        self.turn_right()
+                    else:
+                        twist = Twist()
+                        twist.linear.x = 0.2
+                        twist.angular.z = 0.0
+                        self.vel.publish(twist)
                     """
                     rect_point = self.cam.rectifyPoint((cX, cY))
                     test_pt = self.calculate_3d_point(rect_point)
