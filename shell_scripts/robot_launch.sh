@@ -12,3 +12,6 @@ roslaunch turtlebot3_bringup turtlebot3_remote.launch
 
 # Raspicamera
 roslaunch raspicam_node camerav2_1280x720.launch
+
+# make sound
+rostopic pub /sound turtlebot3_msgs/Sound '{value: 3}'

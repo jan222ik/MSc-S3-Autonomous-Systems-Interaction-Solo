@@ -193,16 +193,10 @@ class TagDetector:
             contours = cv2.findContours(clean, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
             contours = contours[0] if len(contours) == 2 else contours[1]
 
-            result1 = cv_image.copy()
-            result2 = cv_image.copy()
-            # cv2.imshow("TEST", cv_image)
-            # print("TEST")
             center_arr = []
             (h, w) = cv_image.shape[:2]  # w:image-width and h:image-height
             center_x = w//2
             center_y = h//2
-            #tot_x = int(M_I["m10"] / M_I["m00"])
-            #tot_y = int(M_I["m01"] / M_I["m00"])
             # loop over contours
             for c in contours:
                 # compute the center of the contour
@@ -223,10 +217,15 @@ class TagDetector:
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
                     cv2.line(cv_image, (center_x, h), (cX, cY), (255, 0, 0), 2)
                     print("cx: ", cX, ", cy: ", cY, ", center_x: ", center_x, ", center_y: ", center_y)
-                    line_len = np.linalg.norm(np.array((cX-center_x, cY-center_y)))
-                    line_angle = int((math.atan2((cY - center_y), (cX - center_x)) * 180 / math.pi))
+                    # Vektor: Spitze - Schaft in Form (y, x)
+                    vec_to_tag = (cY - h, cX - center_x)
+                    print("VEKTOR: ", vec_to_tag)
+                    line_len = np.linalg.norm(np.array((cX-center_x, cY-h)))
+                    line_angle = int((math.atan2((h - cY), (center_x - cX)) * 180 / math.pi))
                     print("LINE_LENGTH: ", line_len)
                     print("LINE_ANGLE: ", line_angle)
+                    # technically works, but very scuffed ->  try tagstore instead
+                    """
                     if line_angle > 90:
                         self.turn_left()
                     elif line_angle < 90:
@@ -236,6 +235,7 @@ class TagDetector:
                         twist.linear.x = 0.2
                         twist.angular.z = 0.0
                         self.vel.publish(twist)
+                    """
                     """
                     rect_point = self.cam.rectifyPoint((cX, cY))
                     test_pt = self.calculate_3d_point(rect_point)
@@ -287,10 +287,7 @@ class TagDetector:
         
                         self.add_tag_with_tagstore(int(grid_x) + 1, int(grid_y) + 1)
                 """
-            #cv2.imshow("depth", self.depth_image)
-            # rospy.sleep(10.0)
             cv2.imshow("image", cv_image)
-            print("AAAAAAAARRRRR: ", center_arr)
             self.rate_count = 0
             cv2.waitKey(3)
             # self.isActive = False
