@@ -52,6 +52,7 @@ add_message_files(
    DIRECTORY
    msg
    FILES
+   Collab.msg
    Tag.msg
 #  Message2.msg
 )
@@ -61,6 +62,7 @@ add_service_files(
     DIRECTORY
     srv
     FILES
+    CollabTagReached.srv
     TagstoreAddTag.srv
     TagstoreAllTags.srv
     TagstoreResetRVis.srv

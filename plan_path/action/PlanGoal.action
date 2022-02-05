@@ -1,0 +1,9 @@
+# Inputs
+int32 x
+int32 y
+---
+# Result
+std_msgs/Bool has_finished
+---
+# Feedback
+int32 noFeedbackPublished

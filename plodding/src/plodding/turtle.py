@@ -88,7 +88,7 @@ class PloddingTurtle:
             self.state = nextState
 
     def playSound(self):
-        self.pubSound.publish(Sound(value=4))
+        self.pubSound.publish(Sound(value=3))
 
     @staticmethod
     def calcDistance(first, second, roundingPos=4):

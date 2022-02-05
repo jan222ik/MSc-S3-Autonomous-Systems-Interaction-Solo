@@ -13,6 +13,18 @@ git clone https://github.com/ROBOTIS-GIT/turtlebot3_simulations.git
 
 
 rosdep install --from-paths src -i -y
+
+git clone -b kinetic-devel https://github.com/ros-planning/navigation.git
+sudo apt-get install libbullet-dev
+sudo apt-get install libsdl-image1.2-dev
+sudo apt-get install libsdl-dev
+
+sudo apt-get install ros-kinetic-navigation
+sudo apt-get install libnetpbm10-dev
+
+sudo apt install python-pip
+pip install --upgrade pip
+pip install mlrose
 ```
 
 WSL Location: ``\\wsl$\Ubuntu\home\$user\catkin_ws\src\MSc-S3-Autonomous-Systems-Interaction-Solo\``

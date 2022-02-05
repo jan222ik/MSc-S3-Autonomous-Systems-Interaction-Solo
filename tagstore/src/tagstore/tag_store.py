@@ -8,7 +8,9 @@ from std_msgs.msg import Bool
 from tagstore.srv import TagstoreAddTag, TagstoreAddTagResponse
 from tagstore.srv import TagstoreResetRVis, TagstoreResetRVisResponse
 from tagstore.srv import TagstoreAllTags, TagstoreAllTagsResponse
+from tagstore.srv import CollabTagReached, CollabTagReachedResponse
 from tagstore.msg import Tag as MsgTag
+from tagstore.msg import Collab
 
 class Tagstore:
 
@@ -16,7 +18,7 @@ class Tagstore:
         rospy.init_node('tagstore', log_level=rospy.DEBUG, anonymous=True)
         rospy.on_shutdown(self._shutdown)
         rospy.loginfo("Tagstore: Startup")
-        self.tagsPath = rospy.get_param("~tagsFilepath", default = "/home/rosuser/catkin_ws/exec/tags.csv")
+        self.tagsPath = rospy.get_param("~tagsFilepath", default = "/home/jan/catkin_ws/exec/tags.csv")
         self.tagsList = []
 
         self.rvisPointPublisher = rospy.Publisher("visualization_marker_array", MarkerArray, queue_size=100)
@@ -27,6 +29,9 @@ class Tagstore:
         self.srvAddTag = rospy.Service("tagstore-addtag", TagstoreAddTag, self._srvAddTag)
         self.srvResetRVisMarkers = rospy.Service("tagstore-reset-rvis-markers", TagstoreResetRVis, self._srvResetRVisMarkers)
         self.srvAllTags = rospy.Service("tagstore-alltags", TagstoreAllTags, self._srvAllTags)
+
+        self.pubCollabTagApproach = rospy.Publisher("collab-tag-approach", Collab, queue_size=100)
+        self.srvCollabTagReached = rospy.Service("collab-tag-reached", CollabTagReached, self._srvCollabTagReached)
 
         self._loadTagsFromFile()
 
@@ -92,10 +97,26 @@ class Tagstore:
         rospy.logdebug("Tagstore > Service > AddTag: Res success?: {}".format(res.data))
         return TagstoreAddTagResponse(res)
 
+    def _srvCollabTagReached(self, srvData):
+        tagId = srvData.tagID
+        res = Bool()
+        tag = self._findTagID(tagId)
+        res.data = not tag is None
+        if res.data:
+            msg = Collab(hasReached=res,tagID=tagId)
+            self.pubCollabTagApproach.publish(msg)
+        return CollabTagReachedResponse(res)
+
     def _findTagAt(self, x, y):
         tagDetectRadius = 10 * self.mapInfo.resolution
         for tag in self.tagsList:
             if tag.checkXY(x, y, tagDetectRadius):
+                return tag
+        return None
+
+    def _findTagID(self, tagId):
+        for tag in self.tagsList:
+            if tag.globalId == tagId:
                 return tag
         return None
 

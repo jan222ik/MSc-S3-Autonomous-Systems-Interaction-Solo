@@ -22,6 +22,13 @@ settitle Odom & roslaunch transformations_odom transformations_odom.launch
 # Start Tagstore
 settitle TagStore & roslaunch tagstore tagstore.launch
 
+
+# ABOVE or
+settitle Combined & roslaunch plan_path sim-slam-odom.launch
+
+
+settitle CostMap & roslaunch plan_path costmap.launch
+
 # Start Plodding Node to provide Action Server
 settitle Plodding & rosrun plodding turtle.py
 
