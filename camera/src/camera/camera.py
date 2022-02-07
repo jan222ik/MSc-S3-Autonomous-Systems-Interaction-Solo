@@ -20,9 +20,12 @@ from subprocess import call
 RATE = 4
 # HSV (Hue, Saturation, V)
 # H : (0, 10), S: (200, 255), V: (20, 255)
-HSV_LOWER = (150, 100, 20)
-HSV_UPPER = (180, 255, 255)
-
+#lab
+#HSV_LOWER = (150, 100, 20)
+#HSV_UPPER = (180, 255, 255)
+# sim
+HSV_LOWER = (0, 150, 150)
+HSV_UPPER = (40, 255, 255)
 
 class TagDetector:
 
@@ -220,22 +223,24 @@ class TagDetector:
                     cv2.line(cv_image, (center_x, h), (cX, cY), (255, 0, 0), 2)
                     #print("cx: ", cX, ", cy: ", cY, ", center_x: ", center_x, ", center_y: ", center_y)
                     # Vektor: Spitze - Schaft in Form (y, x)
-                    #vec_to_tag = (cY - h, cX - center_x)
-                    #print("VEKTOR: ", vec_to_tag)
-                    #line_len = np.linalg.norm(np.array((cX-center_x, cY-h)))
-                    #line_angle = int((math.atan2((h - cY), (center_x - cX)) * 180 / math.pi))
-                    #print("LINE_LENGTH: ", line_len)
-                    #print("LINE_ANGLE: ", line_angle)
+                    vec_to_tag = (cY - h, cX - center_x)
+                    print("VEKTOR: ", vec_to_tag)
+                    line_len = np.linalg.norm(np.array((cX-center_x, cY-h)))
+                    line_angle = int((math.atan2((h - cY), (center_x - cX)) * 180 / math.pi))
+                    print("LINE_LENGTH: ", line_len)
+                    print("LINE_ANGLE: ", line_angle)
                     # origin is in camera center, move other point
-                    #new_origin = (h - h, center_x - center_x)
-                    #new_cen = (cY - h, cX - center_x)
+                    new_origin = (h - h, center_x - center_x)
+                    new_cen = (cY - h, cX - center_x)
                     #print("NEW POINT: ", new_cen, "; ORIGIN: ", new_origin)
                     # flip y values
-                    #flipped_origin = (new_origin[0] * -1, new_origin[1])
-                    #flipped_cen = (new_cen[0] * -1, new_cen[1])
-                    #print("FLIPPED POINT: ", flipped_cen, ", FLIPPED ORIGIN: ", flipped_origin)
-
-
+                    flipped_origin = (new_origin[0] * -1, new_origin[1])
+                    flipped_cen = (new_cen[0] * -1, new_cen[1])
+                    print("FLIPPED POINT: ", flipped_cen, ", FLIPPED ORIGIN: ", flipped_origin)
+                    new_line_len = np.linalg.norm(np.array((flipped_cen[1] - flipped_origin[1],flipped_cen[0] - flipped_origin[0])))
+                    new_line_angle = int((math.atan2((flipped_origin[1] - flipped_cen[1]), (flipped_origin[0] - flipped_cen[0])) * 180 / math.pi))
+                    print("NEW LINE LENGTH: ", new_line_len)
+                    print("NEW LINE ANGLE: ", new_line_angle)
 
                     # technically works, but very scuffed ->  try tagstore instead
                     """
