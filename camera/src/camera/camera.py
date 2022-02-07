@@ -17,13 +17,19 @@ from transformations_odom.msg import PoseInMap
 import numpy as np
 from subprocess import call
 
-RATE = 2
+RATE = 4
+# HSV (Hue, Saturation, V)
+# H : (0, 10), S: (200, 255), V: (20, 255)
+HSV_LOWER = (150, 100, 20)
+HSV_UPPER = (180, 255, 255)
+
+
 class TagDetector:
 
     def __init__(self):
         rospy.init_node('tag_detector', anonymous=True)
-        self.mapInfo = MapMetaData()
-        self.mapInfo = rospy.wait_for_message("map", OccupancyGrid).info
+        #self.mapInfo = MapMetaData()
+        #self.mapInfo = rospy.wait_for_message("map", OccupancyGrid).info
         self.is_calculating = False
         self.image_pub = rospy.Publisher("/rupp/image_topic_tag", Image)
         # rospy.on_shutdown(self._shutdown)
@@ -151,10 +157,6 @@ class TagDetector:
         return listener.transformPoint(target_frame, stamp_point)
 
     def raspi_callback(self, data):
-        if self.isActive:
-            return
-        else:
-            self.isActive = True
         cv_image = self.bridge.compressed_imgmsg_to_cv2(data, "bgr8")
         self.do_detection(cv_image)
 
@@ -179,8 +181,8 @@ class TagDetector:
             hsv = cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV)
 
             # create a binary thresholded image on hue between red and yellow
-            lower = (0, 150, 150)
-            upper = (40, 255, 255)
+            lower = HSV_LOWER
+            upper = HSV_UPPER
             thresh = cv2.inRange(hsv, lower, upper)
 
             # apply morphology
@@ -216,14 +218,25 @@ class TagDetector:
                     cv2.putText(cv_image, "center_image", (center_x - 20, h - 20),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
                     cv2.line(cv_image, (center_x, h), (cX, cY), (255, 0, 0), 2)
-                    print("cx: ", cX, ", cy: ", cY, ", center_x: ", center_x, ", center_y: ", center_y)
+                    #print("cx: ", cX, ", cy: ", cY, ", center_x: ", center_x, ", center_y: ", center_y)
                     # Vektor: Spitze - Schaft in Form (y, x)
-                    vec_to_tag = (cY - h, cX - center_x)
-                    print("VEKTOR: ", vec_to_tag)
-                    line_len = np.linalg.norm(np.array((cX-center_x, cY-h)))
-                    line_angle = int((math.atan2((h - cY), (center_x - cX)) * 180 / math.pi))
-                    print("LINE_LENGTH: ", line_len)
-                    print("LINE_ANGLE: ", line_angle)
+                    #vec_to_tag = (cY - h, cX - center_x)
+                    #print("VEKTOR: ", vec_to_tag)
+                    #line_len = np.linalg.norm(np.array((cX-center_x, cY-h)))
+                    #line_angle = int((math.atan2((h - cY), (center_x - cX)) * 180 / math.pi))
+                    #print("LINE_LENGTH: ", line_len)
+                    #print("LINE_ANGLE: ", line_angle)
+                    # origin is in camera center, move other point
+                    #new_origin = (h - h, center_x - center_x)
+                    #new_cen = (cY - h, cX - center_x)
+                    #print("NEW POINT: ", new_cen, "; ORIGIN: ", new_origin)
+                    # flip y values
+                    #flipped_origin = (new_origin[0] * -1, new_origin[1])
+                    #flipped_cen = (new_cen[0] * -1, new_cen[1])
+                    #print("FLIPPED POINT: ", flipped_cen, ", FLIPPED ORIGIN: ", flipped_origin)
+
+
+
                     # technically works, but very scuffed ->  try tagstore instead
                     """
                     if line_angle > 90:
