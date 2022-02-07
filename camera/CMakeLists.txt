@@ -167,6 +167,7 @@ include_directories(
    src/camera/camera_V2.py
    src/camera/camera_blob.py
    src/camera/wall_follow.py
+   src/camera/goto_camera.py
    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
  )
 
