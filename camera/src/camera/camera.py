@@ -21,11 +21,11 @@ RATE = 4
 # HSV (Hue, Saturation, V)
 # H : (0, 10), S: (200, 255), V: (20, 255)
 #lab
-#HSV_LOWER = (150, 100, 20)
-#HSV_UPPER = (180, 255, 255)
+HSV_LOWER = (150, 100, 20)
+HSV_UPPER = (180, 255, 255)
 # sim
-HSV_LOWER = (0, 150, 150)
-HSV_UPPER = (40, 255, 255)
+#HSV_LOWER = (0, 150, 150)
+#HSV_UPPER = (40, 255, 255)
 
 class TagDetector:
 
@@ -58,13 +58,13 @@ class TagDetector:
 
     def turn_left(self):
         twist = Twist()
-        twist.linear.x = 0.0
+        twist.linear.x = 0.05
         twist.angular.z = 0.1
         self.vel.publish(twist)
 
     def turn_right(self):
         twist = Twist()
-        twist.linear.x = 0.0
+        twist.linear.x = 0.05
         twist.angular.z = -0.1
         self.vel.publish(twist)
 
@@ -160,6 +160,10 @@ class TagDetector:
         return listener.transformPoint(target_frame, stamp_point)
 
     def raspi_callback(self, data):
+        #twist = Twist()
+        #twist.linear.x = 0.0
+        #twist.angular.z = 0.0
+        #self.vel.publish(twist)
         cv_image = self.bridge.compressed_imgmsg_to_cv2(data, "bgr8")
         self.do_detection(cv_image)
 
@@ -203,108 +207,115 @@ class TagDetector:
             center_x = w//2
             center_y = h//2
             # loop over contours
-            for c in contours:
-                # compute the center of the contour
-                M = cv2.moments(c)
-                if M["m00"] != 0.0:
-                    cX = int(M["m10"] / M["m00"])
-                    cY = int(M["m01"] / M["m00"])
-                    center_arr.append((cX, cY))
-                    c_y = cv_image.shape[0]//2
-                    c_x = cv_image.shape[1]//2
-                    # draw the contour and center of the shape on the image
-                    cv2.drawContours(cv_image, [c], -1, (0, 255, 0), 2)
-                    cv2.circle(cv_image, (cX, cY), 7, (255, 255, 255), -1)
-                    cv2.putText(cv_image, "center", (cX - 20, cY - 20),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-                    cv2.circle(cv_image, (center_x, h), 7, (0, 0, 255), -1)
-                    cv2.putText(cv_image, "center_image", (center_x - 20, h - 20),
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-                    cv2.line(cv_image, (center_x, h), (cX, cY), (255, 0, 0), 2)
-                    #print("cx: ", cX, ", cy: ", cY, ", center_x: ", center_x, ", center_y: ", center_y)
-                    # Vektor: Spitze - Schaft in Form (y, x)
-                    vec_to_tag = (cY - h, cX - center_x)
-                    print("VEKTOR: ", vec_to_tag)
-                    line_len = np.linalg.norm(np.array((cX-center_x, cY-h)))
-                    line_angle = int((math.atan2((h - cY), (center_x - cX)) * 180 / math.pi))
-                    print("LINE_LENGTH: ", line_len)
-                    print("LINE_ANGLE: ", line_angle)
-                    # origin is in camera center, move other point
-                    new_origin = (h - h, center_x - center_x)
-                    new_cen = (cY - h, cX - center_x)
-                    #print("NEW POINT: ", new_cen, "; ORIGIN: ", new_origin)
-                    # flip y values
-                    flipped_origin = (new_origin[0] * -1, new_origin[1])
-                    flipped_cen = (new_cen[0] * -1, new_cen[1])
-                    print("FLIPPED POINT: ", flipped_cen, ", FLIPPED ORIGIN: ", flipped_origin)
-                    new_line_len = np.linalg.norm(np.array((flipped_cen[1] - flipped_origin[1],flipped_cen[0] - flipped_origin[0])))
-                    new_line_angle = int((math.atan2((flipped_origin[1] - flipped_cen[1]), (flipped_origin[0] - flipped_cen[0])) * 180 / math.pi))
-                    print("NEW LINE LENGTH: ", new_line_len)
-                    print("NEW LINE ANGLE: ", new_line_angle)
+            if len(contours) == 0:
+                twist = Twist()
+                twist.linear.x = 0.0
+                twist.angular.z = 0.0
+                self.vel.publish(twist)
+                return
+            else:
+                for c in contours:
+                    # compute the center of the contour
+                    M = cv2.moments(c)
+                    if M["m00"] != 0.0:
+                        cX = int(M["m10"] / M["m00"])
+                        cY = int(M["m01"] / M["m00"])
+                        center_arr.append((cX, cY))
+                        c_y = cv_image.shape[0]//2
+                        c_x = cv_image.shape[1]//2
+                        # draw the contour and center of the shape on the image
+                        cv2.drawContours(cv_image, [c], -1, (0, 255, 0), 2)
+                        cv2.circle(cv_image, (cX, cY), 7, (255, 255, 255), -1)
+                        cv2.putText(cv_image, "center", (cX - 20, cY - 20),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+                        cv2.circle(cv_image, (center_x, h), 7, (0, 0, 255), -1)
+                        cv2.putText(cv_image, "center_image", (center_x - 20, h - 20),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+                        cv2.line(cv_image, (center_x, h), (cX, cY), (255, 0, 0), 2)
+                        #print("cx: ", cX, ", cy: ", cY, ", center_x: ", center_x, ", center_y: ", center_y)
+                        # Vektor: Spitze - Schaft in Form (y, x)
+                        vec_to_tag = (cY - h, cX - center_x)
+                        print("VEKTOR: ", vec_to_tag)
+                        line_len = np.linalg.norm(np.array((cX-center_x, cY-h)))
+                        line_angle = int((math.atan2((h - cY), (center_x - cX)) * 180 / math.pi))
+                        print("LINE_LENGTH: ", line_len)
+                        print("LINE_ANGLE: ", line_angle)
+                        # origin is in camera center, move other point
+                        new_origin = (h - h, center_x - center_x)
+                        new_cen = (cY - h, cX - center_x)
+                        #print("NEW POINT: ", new_cen, "; ORIGIN: ", new_origin)
+                        # flip y values
+                        flipped_origin = (new_origin[0] * -1, new_origin[1])
+                        flipped_cen = (new_cen[0] * -1, new_cen[1])
+                        print("FLIPPED POINT: ", flipped_cen, ", FLIPPED ORIGIN: ", flipped_origin)
+                        new_line_len = np.linalg.norm(np.array((flipped_cen[1] - flipped_origin[1],flipped_cen[0] - flipped_origin[0])))
+                        new_line_angle = int((math.atan2((flipped_origin[1] - flipped_cen[1]), (flipped_origin[0] - flipped_cen[0])) * 180 / math.pi))
+                        print("NEW LINE LENGTH: ", new_line_len)
+                        print("NEW LINE ANGLE: ", new_line_angle)
 
-                    # technically works, but very scuffed ->  try tagstore instead
+                        # technically works, but very scuffed ->  try tagstore instead
+
+                        if new_line_angle > 90:
+                            self.turn_left()
+                        elif line_angle < 90:
+                            self.turn_right()
+                        else:
+                            twist = Twist()
+                            twist.linear.x = 0.1
+                            twist.angular.z = 0.0
+                            self.vel.publish(twist)
+
+                        """
+                        rect_point = self.cam.rectifyPoint((cX, cY))
+                        test_pt = self.calculate_3d_point(rect_point)
+                        new_x = self.cur_pose.point.x + test_pt.point.x
+                        new_y = self.cur_pose.point.y + test_pt.point.y
+                        print("TEST POINT: ", test_pt)
+                        p = self.convert_point_direct(test_pt, "map")
+                        print("CONVERTED POINT: ", p)
+                        map_x = new_x
+                        map_y = new_y
+                        if self.mapInfo.resolution > 0:
+                            grid_x = ((map_x - self.mapInfo.origin.position.x) / self.mapInfo.resolution)
+                            grid_y = ((map_y - self.mapInfo.origin.position.y) / self.mapInfo.resolution)
+            
+                            print("X: ", grid_x, ", Y: ", grid_y)
+            
+                            self.add_tag_with_tagstore(int(grid_y), int(grid_x))
+                        """
+                        """
+                        cv2.drawContours(result1, [c], 0, (0, 0, 0), 2)
+                        # get first point of contour position
+                        x = c[0][0][0]
+                        y = c[0][0][1]
+                        print(self.mapInfo)
+            
+                        # get depth at point
+                        depth_at_point = self.depth_image[x, y]
+            
+                        # circle point in image (to check)
+                        cv2.circle(cv_image, (x, y), 20, (0, 255, 0))
+            
+                        rect_point = self.cam.rectifyPoint((x, y))
+                        cam_ray = np.array(self.cam.projectPixelTo3dRay(rect_point))
+                        cam_point = cam_ray * depth_at_point
+            
+                        # cur_point = (self.cur_pose.point.x + cam_point[0], self.cur_pose.point.y + cam_point[1])
+            
+                        p = self.convert_point(cam_point[0], cam_point[1], "camera_link", "map")
+            
+                        map_x = p.point.x
+                        map_y = p.point.y
+            
+                        # TODO: not quite right, find error and fix!
+                        if self.mapInfo.resolution > 0:
+                            grid_x = ((map_x - self.mapInfo.origin.position.x) / self.mapInfo.resolution)
+                            grid_y = ((map_y - self.mapInfo.origin.position.y) / self.mapInfo.resolution)
+            
+                            print("X: ", grid_x, ", Y: ", grid_y)
+            
+                            self.add_tag_with_tagstore(int(grid_x) + 1, int(grid_y) + 1)
                     """
-                    if line_angle > 90:
-                        self.turn_left()
-                    elif line_angle < 90:
-                        self.turn_right()
-                    else:
-                        twist = Twist()
-                        twist.linear.x = 0.2
-                        twist.angular.z = 0.0
-                        self.vel.publish(twist)
-                    """
-                    """
-                    rect_point = self.cam.rectifyPoint((cX, cY))
-                    test_pt = self.calculate_3d_point(rect_point)
-                    new_x = self.cur_pose.point.x + test_pt.point.x
-                    new_y = self.cur_pose.point.y + test_pt.point.y
-                    print("TEST POINT: ", test_pt)
-                    p = self.convert_point_direct(test_pt, "map")
-                    print("CONVERTED POINT: ", p)
-                    map_x = new_x
-                    map_y = new_y
-                    if self.mapInfo.resolution > 0:
-                        grid_x = ((map_x - self.mapInfo.origin.position.x) / self.mapInfo.resolution)
-                        grid_y = ((map_y - self.mapInfo.origin.position.y) / self.mapInfo.resolution)
-        
-                        print("X: ", grid_x, ", Y: ", grid_y)
-        
-                        self.add_tag_with_tagstore(int(grid_y), int(grid_x))
-                    """
-                    """
-                    cv2.drawContours(result1, [c], 0, (0, 0, 0), 2)
-                    # get first point of contour position
-                    x = c[0][0][0]
-                    y = c[0][0][1]
-                    print(self.mapInfo)
-        
-                    # get depth at point
-                    depth_at_point = self.depth_image[x, y]
-        
-                    # circle point in image (to check)
-                    cv2.circle(cv_image, (x, y), 20, (0, 255, 0))
-        
-                    rect_point = self.cam.rectifyPoint((x, y))
-                    cam_ray = np.array(self.cam.projectPixelTo3dRay(rect_point))
-                    cam_point = cam_ray * depth_at_point
-        
-                    # cur_point = (self.cur_pose.point.x + cam_point[0], self.cur_pose.point.y + cam_point[1])
-        
-                    p = self.convert_point(cam_point[0], cam_point[1], "camera_link", "map")
-        
-                    map_x = p.point.x
-                    map_y = p.point.y
-        
-                    # TODO: not quite right, find error and fix!
-                    if self.mapInfo.resolution > 0:
-                        grid_x = ((map_x - self.mapInfo.origin.position.x) / self.mapInfo.resolution)
-                        grid_y = ((map_y - self.mapInfo.origin.position.y) / self.mapInfo.resolution)
-        
-                        print("X: ", grid_x, ", Y: ", grid_y)
-        
-                        self.add_tag_with_tagstore(int(grid_x) + 1, int(grid_y) + 1)
-                """
             cv2.imshow("image", cv_image)
             self.rate_count = 0
             cv2.waitKey(3)
