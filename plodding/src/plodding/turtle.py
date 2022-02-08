@@ -3,7 +3,7 @@
 import rospy
 import actionlib
 import math
-# import tf
+import tf
 from nav_msgs.msg import OccupancyGrid, MapMetaData, Odometry
 from std_msgs.msg import Bool, String
 from visualization_msgs.msg import Marker, MarkerArray
@@ -20,7 +20,8 @@ class PloddingTurtle:
         self.rate = rospy.Rate(10)
         self.goalDistanceThreshold = rospy.get_param("/plodding_goalDistanceThreshold", 0.03)
         self.goalAngleThreshold = rospy.get_param("/plodding_goalAngleThreshold", 0.2)
-        self.isGainingDistanceThreshold = rospy.get_param("/plodding_goalAngleThreshold", 0.2)
+        self.goalPoseAngleThreshold = rospy.get_param("/plodding_goalPoseAngleThreshold", 0.9)
+        self.isGainingDistanceThreshold = rospy.get_param("/plodding_isGainingDistanceThreshold", 0.2)
         self.LINEAR_MAX_SPEED = rospy.get_param("/plodding_linear_max_speed", 0.3)
         self.lastDistance = 10000000
         self.state = State_Idle()
@@ -68,6 +69,7 @@ class PloddingTurtle:
             self.goalAngleThreshold = rospy.get_param("/plodding_goalAngleThreshold", 0.9)
             self.isGainingDistanceThreshold = rospy.get_param("/plodding_isGainingDistanceThreshold", 0.2)
             self.LINEAR_MAX_SPEED = rospy.get_param("/plodding_linear_max_speed", 0.3)
+            self.goalPoseAngleThreshold = rospy.get_param("/plodding_goalPoseAngleThreshold", 0.9)
             if self.actionServer.is_preempt_requested():
                 rospy.loginfo("Plodding: Requested Cancel")
                 self.stop()
@@ -106,6 +108,23 @@ class PloddingTurtle:
         angle = math.atan2(y, x)
         return angle
 
+    def calcAngleTowardsPose(self, goal):
+        orientation_q = self.currentPose.orientation
+        orientation_list = [orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w]
+        (roll, pitch, yaw) = tf.transformations.euler_from_quaternion(orientation_list)
+
+        touchX = goal.x
+        touchY= goal.y
+        centerX = self.currentPose.position.x
+        centerY = self.currentPose.position.y
+        deltaX = centerX - touchX
+        deltaY = centerY - touchY
+        tween =  math.atan2(deltaY, deltaX)
+
+        angDist = shortest_angular_distance(yaw, tween)
+
+        return angDist
+
     def angularSpeedFor(self, currentAngle, targetAngle):
         speed = 0.18
         radCurrent = self.assurePositiveAndIn2Pi(currentAngle)
@@ -113,6 +132,15 @@ class PloddingTurtle:
         diff = (radCurrent - radTarget) % (2 * math.pi)
         # self.logSteer = diff
         if not diff < math.pi:
+            speed *= -1
+
+        return speed
+
+
+    def angularSpeedFor2(self, angle):
+        speed = 0.18
+        self.logSteer = angle
+        if not angle < 0:
             speed *= -1
 
         return speed
@@ -168,6 +196,11 @@ class PloddingTurtle:
         self.logSteer = angleRange
         return angleRange <= self.goalAngleThreshold
 
+    def isInGoalPoseRotationRange(self):
+        angleRange = abs(abs(self.calcAngleTowardsPose(self.goalPose.position)) - math.pi)
+        self.logSteer = angleRange
+        return angleRange <= self.goalPoseAngleThreshold
+
 
 class StateInterface:
     def name(self):
@@ -190,8 +223,8 @@ class State_Plodding(StateInterface):
 
     def run(self, turtle):
         isInGoalDistanceRange, isGainingDistance = turtle.isInGoalDistanceRange()
-        isInGoalRotationRange = turtle.isInGoalRotationRange()
-        if isInGoalDistanceRange and isInGoalRotationRange:
+        isInGoalPoseRotationRange = turtle.isInGoalPoseRotationRange()
+        if isInGoalDistanceRange and isInGoalPoseRotationRange:
             # Exit Goal Reached
             turtle.stop()
             return State_Timeout()  # TODO pass idle or timeout state based on goal message param
@@ -200,16 +233,20 @@ class State_Plodding(StateInterface):
         angular = 0
 
         turtle.logBranch = 0
-        if not isInGoalRotationRange:
+        if not isInGoalPoseRotationRange:
             turtle.logBranch = 1
             # Location Reached but Rotation is still needed
-            angular = turtle.angularSpeedFor(
+            angular = turtle.angularSpeedFor2(
+                turtle.calcAngleTowardsPose(turtle.goalPose.position)
+            )
+            """
+            turtle.angularSpeedFor(
                 currentAngle=turtle.calcAngle(
                     first=turtle.goalPose,
                     second=turtle.currentPose
                 ),
                 targetAngle=turtle.mapPose.angle
-            )
+            )"""
         elif not isInGoalDistanceRange and not isGainingDistance:
             turtle.logBranch = 2
             linear = turtle.LINEAR_MAX_SPEED
@@ -254,6 +291,18 @@ class State_Timeout(StateInterface):
         return self
 
 
+class State_GoalRotation(StateInterface):
+
+    def __init__(self):
+        pass
+
+    def name(self):
+        return "GoalRotation"
+
+    def run(self, turtle):
+        pass
+
+
 class State_AvoidCollision:
     def name(self): return "Avoid Collision"
 
@@ -268,6 +317,34 @@ def main():
     except rospy.ROSInterruptException:
         pass
 
+
+# Not our code:
+from math import pi
+
+
+def normalize_angle_positive(angle):
+    """ Normalizes the angle to be 0 to 2*pi
+        It takes and returns radians. """
+    return angle % (2.0 * pi)
+
+
+def normalize_angle(angle):
+    """ Normalizes the angle to be -pi to +pi
+        It takes and returns radians."""
+    a = normalize_angle_positive(angle)
+    if a > pi:
+        a -= 2.0 * pi
+    return a
+
+
+def shortest_angular_distance(from_angle, to_angle):
+    """ Given 2 angles, this returns the shortest angular
+        difference.  The inputs and ouputs are of course radians.
+
+        The result would always be -pi <= result <= pi. Adding the result
+        to "from" will always get you an equivelent angle to "to".
+    """
+    return normalize_angle(to_angle - from_angle)
 
 if __name__ == '__main__':
     main()
