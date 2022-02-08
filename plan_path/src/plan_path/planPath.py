@@ -119,7 +119,7 @@ class PlanPath:
             if nextPoint is None:
                 angle = 0
             else:
-                angle = self.angle_between(point, nextPoint)
+                angle = self.angle_between([1,0], point)
             nextPoint = point
             traversalPoints.append(TraversalPoint(point[0], point[1], angle))
 
@@ -127,9 +127,18 @@ class PlanPath:
 
     @staticmethod
     def angle_between(p1, p2):
-        ang1 = np.arctan2(*p1[::-1])
-        ang2 = np.arctan2(*p2[::-1])
-        return np.rad2deg((ang1 - ang2) % (2 * np.pi))
+        #ang1 = np.arctan2(*p1[::-1])
+        #ang2 = np.arctan2(*p2[::-1])
+        #return np.rad2deg((ang1 - ang2) % (2 * np.pi))
+        a = np.array(p1)
+        b = np.array(p2)
+
+        inner = np.inner(a, b)
+        norms = np.linalg.norm(a) * np.linalg.norm(b)
+
+        cos = inner / norms
+        rad = np.arccos(np.clip(cos, -1.0, 1.0))
+        return cos
 
     def neighborsForCell(self, costmap, cell):
         l = []

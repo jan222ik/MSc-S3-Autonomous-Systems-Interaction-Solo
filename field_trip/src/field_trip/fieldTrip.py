@@ -101,11 +101,11 @@ class FieldTrip:
         idx = self.current + 1
         while idx < len(self.visited) and self.visited[idx]:
             idx += 1
-        # TODO Index out of bounds for idx
-        if self.visited[idx]:
+
+        if all(self.visited):
             self.onDoneScenario()
         else:
-            self.current = idx
+            self.current = idx % len(self.visited)
             self.nextNavTarget()
 
     def onDoneScenario(self):

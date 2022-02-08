@@ -37,7 +37,7 @@ class TraversePath:
         self.externalCancel = False
         self.traversalIdx = 0
 
-        self._publishRvisPoints(self.traversalPoints)
+
 
         self._scheduleNextGoal()
 
@@ -66,7 +66,9 @@ class TraversePath:
             goalPose = self.toGoalPose(traversalPoint, self.mapInfo)
             goal = PlodGoal()
             goal.target = goalPose
+            self._publishRvisPoints(self.traversalPoints)
             self.ploddingClient.send_goal(goal, done_cb=self._onDone)
+
             # TODO add callback when goal was reached to schedule next goal
 
         else:
