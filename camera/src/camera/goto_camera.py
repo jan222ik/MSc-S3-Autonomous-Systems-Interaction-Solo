@@ -57,13 +57,21 @@ class GoToCam:
 
     def do_detection(self, cv_image):
         print("DETECTION_COUNT: ", self.rate_count)
-        if self.rate_count >= RATE:
+        rate = rospy.get_param('/cam_rate', 4)
+        if self.rate_count >= rate:
             print("DOING DETECTION!!!")
             hsv = cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV)
 
             # create a binary thresholded image on hue between red and yellow
-            lower = HSV_LOWER
-            upper = HSV_UPPER
+            lower_hsv = (rospy.get_param('lower_h', 0),
+                         rospy.get_param('lower_s', 150),
+                         rospy.get_param('lower_v', 150))
+            upper_hsv = (rospy.get_param('upper_h', 40),
+                         rospy.get_param('upper_s', 255),
+                         rospy.get_param('upper_v', 255))
+
+            lower = lower_hsv
+            upper = upper_hsv
             thresh = cv2.inRange(hsv, lower, upper)
 
             # apply morphology

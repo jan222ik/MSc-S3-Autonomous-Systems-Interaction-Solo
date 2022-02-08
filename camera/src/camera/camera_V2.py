@@ -73,13 +73,21 @@ class TagsToMap:
 
     def do_detection(self, cv_image):
         print("DETECTION_COUNT: ", self.rate_count)
-        if self.rate_count >= RATE:
+        rate = rospy.get_param('/cam_rate', 4)
+        if self.rate_count >= rate:
             print("DOING DETECTION!!!")
             hsv = cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV)
 
-            # create a binary thresholded image on hue between red and yellow
-            lower = HSV_LOWER
-            upper = HSV_UPPER
+            # create a binary thresholded image on hue
+            lower_hsv = (rospy.get_param('lower_h', 0),
+                         rospy.get_param('lower_s', 150),
+                         rospy.get_param('lower_v', 150))
+            upper_hsv = (rospy.get_param('upper_h', 40),
+                         rospy.get_param('upper_s', 255),
+                         rospy.get_param('upper_v', 255))
+
+            lower = lower_hsv
+            upper = upper_hsv
             thresh = cv2.inRange(hsv, lower, upper)
 
             # apply morphology
@@ -142,17 +150,6 @@ class TagsToMap:
                         print("NEW LINE LENGTH: ", new_line_len)
                         print("NEW LINE ANGLE: ", new_line_angle)
 
-                        #if new_line_angle > 90:
-                         #   twist = Twist()
-                          #  twist.linear.x = 0.0
-                           # twist.angular.z = 0.1
-                            #self.vel.publish(twist)
-                        #elif new_line_angle < 90:
-                         #   twist = Twist()
-                          #  twist.linear.x = 0.0
-                           # twist.angular.z = -0.1
-                            #self.vel.publish(twist)
-                        #else:
                         if self.robot_pose is not None:
                             # get robot angel and rotate
                             rot_point = self.rotate(flipped_origin, flipped_cen, self.robot_pose.angle)
