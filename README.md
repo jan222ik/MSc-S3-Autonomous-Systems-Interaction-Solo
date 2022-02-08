@@ -22,9 +22,6 @@ sudo apt-get install libsdl-dev
 sudo apt-get install ros-kinetic-navigation
 sudo apt-get install libnetpbm10-dev
 
-sudo apt install python-pip
-pip install --upgrade pip
-pip install mlrose
 ```
 
 WSL Location: ``\\wsl$\Ubuntu\home\$user\catkin_ws\src\MSc-S3-Autonomous-Systems-Interaction-Solo\``

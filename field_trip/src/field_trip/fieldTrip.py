@@ -13,6 +13,14 @@ from traverse_path.msg import TraversalPoint, TraversePathAction, TraversePathAc
 from actionlib_msgs.msg import GoalID
 from tagstore.msg import Collab
 from tagstore.srv import TagstoreAllTags
+from plan_path.msg import PlanGoalAction, PlanGoalActionResult, PlanGoalResult, PlanGoalActionGoal, PlanGoalGoal, \
+    PlanGoalActionFeedback
+from transformations_odom.msg import PoseTF
+from itertools import combinations
+from itertools import product
+from sys import stdout as out
+import random, numpy, math, copy, matplotlib.pyplot as plt
+
 
 from abc import ABCMeta, abstractmethod
 from heapq import heappush, heappop, heapify
@@ -38,24 +46,70 @@ class FieldTrip:
     def __init__(self):
         rospy.init_node('field_trip', log_level=rospy.DEBUG, anonymous=True)
         rospy.loginfo("FieldTrip: Startup")
-        rospy.logdebug("FieldTrip: Await tagstore 'tagstore-alltags' service proxy")
-        rospy.wait_for_service("tagstore-alltags")
-        self.taglist = rospy.ServiceProxy("tagstore-alltags", TagstoreAllTags)()
+        self.neighbourThreshold = 80
+        rospy.logdebug("FieldTrip: Await tagstore 'tagstore_alltags' service proxy")
+        rospy.wait_for_service("tagstore_alltags")
+        self.taglist = rospy.ServiceProxy("tagstore_alltags", TagstoreAllTags)().tags
+        rospy.logdebug("FieldTrip: {} Tags: {}".format(len(self.taglist), self.taglist))
+        self.distlist = []
+        self.costmap = []
+        for i in range(len(self.taglist)):
+            self.costmap.append([])
+            for j in range(len(self.taglist)):
+                self.costmap[i].append(None)
+
         rospy.logdebug("FieldTrip: Await map message for MapInfo")
         self.mapInfo = MapMetaData()
         self.mapInfo = rospy.wait_for_message("map", OccupancyGrid).info
         rospy.logdebug("FieldTrip: Await calculation for all paths between Tags to finish")
         self.pathLookupMap = self.calculatePathsBetweenTags(self.taglist)
         rospy.logdebug("FieldTrip: Finished Path between Tag Calculation")
+        rospy.logdebug("FieldTrip: Await current map pose")
+        pose = rospy.wait_for_message("pose_tf", PoseTF).mapPose
+        rospy.logdebug("FieldTrip: Await calculation of Traveling Sales Man to finish")
+        self.tsp = self.plan_global(startMapPose=pose)
+        print(self.tsp)
+        rospy.logdebug("FieldTrip: Finished Traveling Sales Man Calculation")
 
-        rospy.logdebug("FieldTrip: Await Action Client for traversal")
-        client = actionlib.SimpleActionClient("traversal_action_server", TraversePathAction)
+        rospy.logdebug("FieldTrip: Await Action Client 'plan_path_action_server'")
+        self.client = actionlib.SimpleActionClient("plan_path_action_server", PlanGoalAction)
+        self.client.wait_for_server()
         rospy.logdebug("FieldTrip: Finished Action Client")
 
-        client.wait_for_server()
 
-        self.subTagReached = rospy.Subscriber("collab-tag-approach", Collab, self.subTagReached)
+        self.subTagReached = rospy.Subscriber("collab_tag_approach", Collab, self.subTagReached)
+        self.pubTagReached = rospy.Publisher("collab_tag_approach", Collab)
 
+        self.visited = [False for i in range(len(self.taglist))]
+        self.current = 0
+        self.targetTag = None
+        self.nextNavTarget()
+        rospy.spin()
+
+    def nextNavTarget(self):
+        rospy.logdebug("FieldTrip: Get Nav Target")
+        self.targetTag = self.tsp[self.current]
+        goalData = PlanGoalGoal(x=self.targetTag.x, y=self.targetTag.y)
+        rospy.logdebug("FieldTrip: Send Nav Target")
+        self.client.send_goal(
+            goal=goalData,
+            done_cb=self.onDoneGoal
+        )
+
+    def onDoneGoal(self, goalId, data):
+        self.visited[self.current] = True
+        idx = self.current + 1
+        while idx < len(self.visited) and self.visited[idx]:
+            idx += 1
+        # TODO Index out of bounds for idx
+        if self.visited[idx]:
+            self.onDoneScenario()
+        else:
+            self.current = idx
+            self.nextNavTarget()
+
+    def onDoneScenario(self):
+        rospy.logdebug("FieldTrip: Finished Scenario")
 
     def subTagReached(self, data):
         if data.hasReached.data:
@@ -67,6 +121,7 @@ class FieldTrip:
     def plan_global(self, startMapPose):
         """
             Gives a global plan in which order to visit the tags.
+            @rtype: list
         """
         start = (startMapPose.x, startMapPose.y)
         minTag = None
@@ -78,60 +133,87 @@ class FieldTrip:
                 minDist = distance_between_cells
                 minTag = tag
 
-        
+        orderOfTags = self.tspSolve()
+        before, after = [], []
+        found = False
+        for t in orderOfTags:
+            if t.global_id == minTag.global_id:
+                found=True
+            elif found:
+                after.append(t)
+            else:
+                before.append(t)
 
-
-        pass
+        return [minTag] + after + before
 
     def calculatePathsBetweenTags(self, tagList):
         """
             Calculates all paths between 2 given tags
         """
-        paths = [[]]
+        paths = [[None for col in range(len(tagList))] for row in range(len(tagList))]
+        print paths
+        costmapMsg = rospy.wait_for_message("/costmap_node/costmap/costmap", OccupancyGrid)
+        costmap = np.reshape(costmapMsg.data, (costmapMsg.info.height, costmapMsg.info.width))
         for p in list(itertools.combinations(range(len(tagList)), 2)):
             start = tagList[p[0]]
             goal = tagList[p[1]]
             if paths[start.global_id][goal.global_id] is None or paths[goal.global_id][start.global_id] is None:
-                path = find_path(
+                path = list(find_path(
                     start=(start.x, start.y),
                     goal=(goal.x, goal.y),
-                    neighbors_fnct=lambda cell: self.neighborsForCell(cell),
+                    neighbors_fnct=lambda cell: self.neighborsForCell(costmap, cell),
                     reversePath=False,
                     heuristic_cost_estimate_fnct=self.euclideanDistanceBetweenCells,
                     distance_between_fnct=lambda a, b: 1,
                     is_goal_reached_fnct=lambda a, b: a == b
-                )
+                ))
+                print("Path {}".format(path))
                 cost = len(path)
                 paths[start.global_id][goal.global_id]=(start, goal, cost, path)
                 paths[goal.global_id][start.global_id]=(goal, start, cost, path[::-1])
+                self.distlist.append((p[0], p[1], cost))
+                self.costmap[p[0]][p[1]] = cost
+                self.costmap[p[1]][p[0]] = cost
         return paths
 
 
 
-    def neighborsForCell(self, cell):
+    def neighborsForCell(self, costmap, cell):
         l = []
         for direction in cardinals:
             target = add(cell, direction)
-            # TODO check if target exist and can be driven on
-            l.append(target)
+            if costmap[target[0]][target[1]] < self.neighbourThreshold:
+                l.append(target)
         return l
 
     @staticmethod
     def euclideanDistanceBetweenCells(a, b):
-        return np.linalg.norm(a-b)
+        x = np.power(b[0] - a[0], 2)
+        y = np.power(b[1] - a[1], 2)
+        return np.sqrt(np.sum([x, y]))
 
+    def cost(self, c0, c1):
+        return self.costmap[c0.global_id][c1.global_id]
 
+    def tspSolve(self):
+        tags = self.taglist
+        N = len(tags)
+        tour = random.sample(range(N),N)
+        for temperature in numpy.logspace(0,5,num=100000)[::-1]:
+            [i,j] = sorted(random.sample(range(N),2))
+            newTour =  tour[:i] + tour[j:j+1] +  tour[i+1:j] + tour[i:i+1] + tour[j+1:]
+            oldDistances = sum([
+                self.cost(tags[tour[(k + 1) % N]], tags[tour[k % N]]) for k in[j, j - 1, i, i - 1]]
+            )
+            newDistances = sum([
+                self.cost(tags[newTour[(k + 1) % N]], tags[newTour[k % N]]) for k in[j, j - 1, i, i - 1]]
+            )
+            if math.exp((oldDistances - newDistances) / temperature) > random.random():
+                 tour = copy.copy(newTour)
 
+        print(map(lambda x: "{} {}".format(x, tags[x]), tour))
+        return list(map(lambda x: tags[x], tour))
 
-
-def main():
-    try:
-        node = FieldTrip()
-    except rospy.ROSInterruptException:
-        pass
-
-if __name__ == '__main__':
-    main()
 
 
 #### Not our ASTAR Impl
@@ -274,3 +356,11 @@ def find_path(
 
 
 
+def main():
+    try:
+        node = FieldTrip()
+    except rospy.ROSInterruptException:
+        pass
+
+if __name__ == '__main__':
+    main()

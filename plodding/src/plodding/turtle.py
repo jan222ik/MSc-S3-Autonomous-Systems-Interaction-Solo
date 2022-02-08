@@ -65,7 +65,7 @@ class PloddingTurtle:
 
         while not rospy.is_shutdown() and not self.externalCancel and not self.isDone:
             self.goalDistanceThreshold = rospy.get_param("/plodding_goalDistanceThreshold", 0.03)
-            self.goalAngleThreshold = rospy.get_param("/plodding_goalAngleThreshold", 0.2)
+            self.goalAngleThreshold = rospy.get_param("/plodding_goalAngleThreshold", 0.9)
             self.isGainingDistanceThreshold = rospy.get_param("/plodding_isGainingDistanceThreshold", 0.2)
             self.LINEAR_MAX_SPEED = rospy.get_param("/plodding_linear_max_speed", 0.3)
             if self.actionServer.is_preempt_requested():
@@ -111,7 +111,7 @@ class PloddingTurtle:
         radCurrent = self.assurePositiveAndIn2Pi(currentAngle)
         radTarget = self.assurePositiveAndIn2Pi(targetAngle)
         diff = (radCurrent - radTarget) % (2 * math.pi)
-        self.logSteer = diff
+        # self.logSteer = diff
         if not diff < math.pi:
             speed *= -1
 
@@ -164,10 +164,9 @@ class PloddingTurtle:
         return atGoal, isGainingDistance
 
     def isInGoalRotationRange(self):
-        return abs(self.calcAngle(
-            first=self.goalPose,
-            second=self.currentPose
-        ) - self.mapPose.angle) <= self.goalAngleThreshold
+        angleRange = abs(self.calcAngle(first=self.goalPose, second=self.currentPose) - self.mapPose.angle)
+        self.logSteer = angleRange
+        return angleRange <= self.goalAngleThreshold
 
 
 class StateInterface:

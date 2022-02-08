@@ -61,14 +61,14 @@ class PlanPath:
 
     def _nextActionGoal(self, data):
         goal = (data.x, data.y)
+        rospy.logdebug("PlanPath: Next Goal {}".format(goal))
         self.externalCancel = False
         self.isDone = False
 
         self.planAndExecute(goal)
 
-        result = PlanGoalActionResult()
-        result.result = PlanGoalResult()
-        result.result.has_finished = Bool()
+        result = PlanGoalResult()
+        result.has_finished = Bool()
 
         while not rospy.is_shutdown() and not self.externalCancel and not self.isDone:
             if self.actionServer.is_preempt_requested():
@@ -77,10 +77,11 @@ class PlanPath:
 
             self.rate.sleep()
 
-        result.result.has_finished.data = self.isDone
-        self.actionServer.set_succeeded(result.result)
+        result.has_finished.data = self.isDone
+        self.actionServer.set_succeeded(result)
 
     def planAndExecute(self, goal):
+        rospy.logdebug("PlanPath: Plan Path")
         poseTF = rospy.wait_for_message("pose_tf", PoseTF)
         start = (poseTF.mapPose.x, poseTF.mapPose.y)
         tps = self.createTraversalPoints(
@@ -89,56 +90,64 @@ class PlanPath:
         )
         g = TraversePathGoal()
         g.traversal_points = tps
-
+        rospy.logdebug("PlanPath: Execute path")
         self.client.send_goal(g, done_cb=self._onDone)
 
     def _onDone(self, goalId, result):
-        rospy.loginfo("Traversal Result: {} for goalID {}".format(result, goalId))
-        self.isDone = result.traversal_has_finished
+        rospy.loginfo("PlanPath: Traversal Result: {} for goalID {}".format(result, goalId))
+        self.isDone = result.traversal_has_finished.data
         if not self.isDone:
             self.externalCancel = True
 
     def createTraversalPoints(self, startPosePair, goalPosePair):
-        costmapArr = rospy.wait_for_message("/costmap_node/costmap/costmap", OccupancyGrid)
-        costmap = np.reshape(costmapArr, (self.mapInfo.height, self.mapInfo.width))
-        path = find_path(
+        rospy.logdebug("PlanPath: Create Traversal Points")
+        costmapMsg = rospy.wait_for_message("/costmap_node/costmap/costmap", OccupancyGrid)
+        costmap = np.reshape(costmapMsg.data, (costmapMsg.info.height, costmapMsg.info.width))
+        rospy.logdebug("PlanPath: From: {} To: {}".format(startPosePair, goalPosePair))
+        path = list(find_path(
             start=startPosePair,
             goal=goalPosePair,
             neighbors_fnct=lambda cell: self.neighborsForCell(costmap, cell),
             reversePath=False,
             heuristic_cost_estimate_fnct=self.euclideanDistanceBetweenCells,
             distance_between_fnct=lambda a, b: 1 + costmap[b[0]][b[1]],
-            is_goal_reached_fnct=lambda a, b: a == b
-        )
+            is_goal_reached_fnct=lambda a, b: abs(a[0] - b[0]) < 0.5 and abs(a[1] - b[1]) < 0.5
+        ))
         traversalPoints = []
-        for point in path:
-            angle = 0
-            traversalPoints.append(TraversalPoint(point[0], point[1], angle))  # TODO Change angle
+        nextPoint = None
+        for point in path[::-1]:
+            if nextPoint is None:
+                angle = 0
+            else:
+                angle = self.angle_between(point, nextPoint)
+            nextPoint = point
+            traversalPoints.append(TraversalPoint(point[0], point[1], angle))
 
-        return traversalPoints
+        return traversalPoints[::-1]
+
+    @staticmethod
+    def angle_between(p1, p2):
+        ang1 = np.arctan2(*p1[::-1])
+        ang2 = np.arctan2(*p2[::-1])
+        return np.rad2deg((ang1 - ang2) % (2 * np.pi))
 
     def neighborsForCell(self, costmap, cell):
         l = []
         for direction in cardinals:
             target = add(cell, direction)
-            if costmap[target[0]][target[1]] < self.neighbourThreshold:
-                l.append(target)
+            try:
+                if costmap[target[0]][target[1]] < self.neighbourThreshold:
+                    l.append(target)
+            except IndexError:
+                pass
+                # rospy.logwarn("PlanPath: Costmap index access outside of bounds: {}".format(target))
         return l
 
     @staticmethod
     def euclideanDistanceBetweenCells(a, b):
-        return np.linalg.norm(a - b)
-
-
-def main():
-    try:
-        node = PlanPath()
-    except rospy.ROSInterruptException:
-        pass
-
-
-if __name__ == '__main__':
-    main()
+        x = np.power(b[0] - a[0], 2)
+        y = np.power(b[1] - a[1], 2)
+        return np.sqrt(np.sum([x, y]))
 
 #### Not our ASTAR Impl
 
@@ -279,4 +288,12 @@ def find_path(
     return FindPath().astar(start, goal, reversePath)
 
 
-__all__ = ['AStar', 'find_path']
+def main():
+    try:
+        node = PlanPath()
+    except rospy.ROSInterruptException:
+        pass
+
+
+if __name__ == '__main__':
+    main()

@@ -28,9 +28,9 @@ class Tagstore:
 
         self.srvAddTag = rospy.Service("tagstore-addtag", TagstoreAddTag, self._srvAddTag)
         self.srvResetRVisMarkers = rospy.Service("tagstore-reset-rvis-markers", TagstoreResetRVis, self._srvResetRVisMarkers)
-        self.srvAllTags = rospy.Service("tagstore-alltags", TagstoreAllTags, self._srvAllTags)
+        self.srvAllTags = rospy.Service("tagstore_alltags", TagstoreAllTags, self._srvAllTags)
 
-        self.pubCollabTagApproach = rospy.Publisher("collab-tag-approach", Collab, queue_size=100)
+        self.pubCollabTagApproach = rospy.Publisher("collab_tag_approach", Collab, queue_size=100)
         self.srvCollabTagReached = rospy.Service("collab-tag-reached", CollabTagReached, self._srvCollabTagReached)
 
         self._loadTagsFromFile()

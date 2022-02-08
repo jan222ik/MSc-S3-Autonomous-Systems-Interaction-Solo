@@ -38,6 +38,9 @@ settitle TraversePath & roslaunch traverse_path traverse_path.launch
 # Start Plan Path Node
 settitle PlanPath & rosrun plan_path planPath.py
 
+# Start Field Trip
+settitle FieldTrip & rosrun field_trip fieldTrip.py
+
 
 # Drive Bot to better observe changes otherwise coordinates will stay the same
 settitle Teleop & roslaunch turtlebot3_teleop turtlebot3_teleop_key.launch
