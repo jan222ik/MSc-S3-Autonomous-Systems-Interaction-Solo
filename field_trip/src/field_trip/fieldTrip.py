@@ -78,12 +78,38 @@ class FieldTrip:
 
 
         self.subTagReached = rospy.Subscriber("collab_tag_approach", Collab, self.subTagReached)
-        self.pubTagReached = rospy.Publisher("collab_tag_approach", Collab)
+        self.pubTagReached = rospy.Publisher("collab_tag_approach", Collab, queue_size=1)
 
         self.visited = [False for i in range(len(self.taglist))]
         self.current = 0
         self.nextNavTarget()
-        rospy.spin()
+
+        self.isDone = False
+        self.rate = rospy.Rate(1)
+
+        self.executing = False
+        while not rospy.is_shutdown() and not self.isDone:
+            loopLog = "./."
+            if self.visited[self.current]:
+                loopLog = "IDX: {} already visited.".format(self.current)
+                self.current = (self.current +  1) % len(self.visited)
+                self.executing = False
+                if all(self.visited):
+                    self.isDone = True
+            elif not self.executing:
+                loopLog = "Next Target"
+                self.executing = True
+                self.nextNavTarget()
+
+            rospy.logdebug("FieldTrip: {} > Idx: {} > TagID: {} > Loop Msg: {}".format(self.visited, self.current, self.tsp[self.current].global_id, loopLog))
+            self.rate.sleep()
+
+        rospy.logdebug("FieldTrip: Finished > Publish Goal to Stop Robot")
+        # Publish another goal to stop the robot in case the last goal gets canceled
+        pose = rospy.wait_for_message("pose_tf", PoseTF).mapPose
+        self.client.send_goal_and_wait(goal= PlanGoalGoal(x=pose.x, y=pose.y))
+        rospy.logdebug("FieldTrip: Finished Scenario")
+
 
     def nextNavTarget(self):
         rospy.logdebug("FieldTrip: Get Nav Target")
@@ -97,32 +123,21 @@ class FieldTrip:
 
     def onDoneGoal(self, goalId, data):
         self.visited[self.current] = True
-        idx = self.current + 1
-        while idx < len(self.visited) and self.visited[idx]:
-            idx += 1
 
-        if all(self.visited):
-            self.onDoneScenario()
-        else:
-            self.current = idx % len(self.visited)
-            self.nextNavTarget()
-
-    def onDoneScenario(self):
-        rospy.logdebug("FieldTrip: Finished Scenario")
 
     def subTagReached(self, data):
         rospy.logdebug("FieldTrip: Reached Msg: {}".format(data))
         if data.hasReached.data:
             rospy.logdebug("FieldTrip: Tag was reached")
-            idx =0
-            for tag in self.taglist:
+            idx = 0
+            for tag in self.tsp:
                 if data.tag.global_id  == tag.global_id:
                     if not self.visited[idx]:
                         rospy.logdebug("FieldTrip: Tag set visited to True")
                         self.visited[idx] = True
                         if idx == self.current:
                             rospy.logdebug("FieldTrip: Active Goal was reached by other robot or marked from CLI")
-                            self.onDoneGoal(None, None)
+                            # self.onDoneGoal(None, None)
                     break
                 else:
                     idx += 1
