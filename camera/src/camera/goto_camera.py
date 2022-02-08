@@ -24,6 +24,9 @@ HSV_LOWER = (0, 150, 150)
 HSV_UPPER = (40, 255, 255)
 
 class GoToCam:
+    """
+    Node for driving towards red contours detected in image.
+    """
 
     def __init__(self):
         rospy.init_node('goto_camera', anonymous=True)

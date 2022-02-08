@@ -28,7 +28,12 @@ RATE = 4
 HSV_LOWER = (0, 150, 150)
 HSV_UPPER = (40, 255, 255)
 
+
 class TagDetector:
+    """
+    This class is for documenting everything we tried with the camera only.
+    Do not use this in an actual simulation!
+    """
 
     def __init__(self):
         rospy.init_node('tag_detector', anonymous=True)

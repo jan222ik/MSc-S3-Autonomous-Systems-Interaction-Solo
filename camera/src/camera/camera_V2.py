@@ -24,6 +24,9 @@ HSV_LOWER = (0, 150, 150)
 HSV_UPPER = (40, 255, 255)
 
 class TagsToMap:
+    """
+    Node for converting red contours detected in image to tags in map.
+    """
 
     def __init__(self):
         rospy.init_node('tags_to_map', anonymous=True)
