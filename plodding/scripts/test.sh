@@ -50,4 +50,6 @@ rosservice call /tagstore-reset-rvis-markers
 
 
 # Call service
-rosservice call /tagstore-addtag -- 150 150
+rosservice call /tagstore_addtag -- 150 150
+
+rosservice call /collab_tag_reached -- 3

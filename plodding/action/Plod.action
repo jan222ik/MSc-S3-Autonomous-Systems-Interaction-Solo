@@ -1,5 +1,6 @@
 # Inputs
 geometry_msgs/Pose target
+std_msgs/Bool waitAfter
 ---
 # Result
 std_msgs/Bool plod_has_finished

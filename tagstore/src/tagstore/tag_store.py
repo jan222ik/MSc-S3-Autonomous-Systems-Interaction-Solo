@@ -26,12 +26,12 @@ class Tagstore:
         self.mapInfo = rospy.wait_for_message("map", OccupancyGrid).info
         self.rvisMarkerArray = MarkerArray()
 
-        self.srvAddTag = rospy.Service("tagstore-addtag", TagstoreAddTag, self._srvAddTag)
-        self.srvResetRVisMarkers = rospy.Service("tagstore-reset-rvis-markers", TagstoreResetRVis, self._srvResetRVisMarkers)
+        self.srvAddTag = rospy.Service("tagstore_addtag", TagstoreAddTag, self._srvAddTag)
+        self.srvResetRVisMarkers = rospy.Service("tagstore_reset_rvis_markers", TagstoreResetRVis, self._srvResetRVisMarkers)
         self.srvAllTags = rospy.Service("tagstore_alltags", TagstoreAllTags, self._srvAllTags)
 
-        self.pubCollabTagApproach = rospy.Publisher("collab_tag_approach", Collab, queue_size=100)
-        self.srvCollabTagReached = rospy.Service("collab-tag-reached", CollabTagReached, self._srvCollabTagReached)
+        self.pubCollabTagApproach = rospy.Publisher("collab_tag_approach", Collab, queue_size=1)
+        self.srvCollabTagReached = rospy.Service("collab_tag_reached", CollabTagReached, self._srvCollabTagReached)
 
         self._loadTagsFromFile()
 
@@ -101,9 +101,13 @@ class Tagstore:
         tagId = srvData.tagID
         res = Bool()
         tag = self._findTagID(tagId)
-        res.data = not tag is None
+        res.data = not (tag is None)
+        rospy.logdebug("Tagstore > Reached: {} > Tag: {}".format(res.data, tag))
         if res.data:
-            msg = Collab(hasReached=res,tagID=tagId)
+            msg = Collab(
+                hasReached=Bool(True),
+                tag=tag.toMsgTag()
+            )
             self.pubCollabTagApproach.publish(msg)
         return CollabTagReachedResponse(res)
 

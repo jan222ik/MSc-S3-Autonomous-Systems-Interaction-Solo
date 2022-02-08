@@ -39,7 +39,7 @@ class PlanPath:
     def __init__(self):
         rospy.init_node('plan_path', log_level=rospy.DEBUG, anonymous=True)
         rospy.loginfo("PlanPath: Startup")
-        self.neighbourThreshold = 80
+        self.neighbourThreshold = 20
         self.rate = rospy.Rate(5)
         rospy.logdebug("PlanPath: Await map message for MapInfo")
         self.mapInfo = MapMetaData()
@@ -102,7 +102,7 @@ class PlanPath:
     def createTraversalPoints(self, startPosePair, goalPosePair):
         rospy.logdebug("PlanPath: Create Traversal Points")
         costmapMsg = rospy.wait_for_message("/costmap_node/costmap/costmap", OccupancyGrid)
-        costmap = np.reshape(costmapMsg.data, (costmapMsg.info.height, costmapMsg.info.width))
+        costmap = np.array(costmapMsg.data, dtype=np.int8).reshape(costmapMsg.info.height, costmapMsg.info.width)
         rospy.logdebug("PlanPath: From: {} To: {}".format(startPosePair, goalPosePair))
         path = list(find_path(
             start=startPosePair,
@@ -110,7 +110,7 @@ class PlanPath:
             neighbors_fnct=lambda cell: self.neighborsForCell(costmap, cell),
             reversePath=False,
             heuristic_cost_estimate_fnct=self.euclideanDistanceBetweenCells,
-            distance_between_fnct=lambda a, b: 1 + costmap[b[0]][b[1]],
+            distance_between_fnct= lambda a, b: self.costBetween(a, b, costmap, costmapMsg.info),
             is_goal_reached_fnct=lambda a, b: abs(a[0] - b[0]) < 0.5 and abs(a[1] - b[1]) < 0.5
         ))
         traversalPoints = []
@@ -124,6 +124,36 @@ class PlanPath:
             traversalPoints.append(TraversalPoint(point[0], point[1], angle))
 
         return traversalPoints[::-1]
+
+    def costBetween(self, a, b, costmap, info):
+        cost = 1 + max(0, self.extractCostAt(costmap, info, b[0], b[1]))
+        print cost
+        return cost
+
+    @staticmethod
+    def extractCostAt(costmap, info, x, y):
+        if -1 < x < info.width and -1 < y < info.height:
+            # data comes in row-major order http://docs.ros.org/en/melodic/api/nav_msgs/html/msg/OccupancyGrid.html
+            # first index is the row, second index the column
+            return costmap[y][x]
+        else:
+            raise IndexError(
+                "Coordinates out of gridmap, x: {}, y: {} must be in between: [0, {}], [0, {}]".format(
+                    x, y, info.height, info.width))
+
+
+
+    def neighborsForCell(self, cm, cell):
+        l = []
+        for direction in cardinals:
+            target = add(cell, direction)
+            try:
+                if cm[target[0]][target[1]] < self.neighbourThreshold:
+                    l.append(target)
+            except IndexError:
+                pass
+                # rospy.logwarn("PlanPath: Costmap index access outside of bounds: {}".format(target))
+        return l
 
     @staticmethod
     def angle_between(p1, p2):

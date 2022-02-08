@@ -82,15 +82,14 @@ class FieldTrip:
 
         self.visited = [False for i in range(len(self.taglist))]
         self.current = 0
-        self.targetTag = None
         self.nextNavTarget()
         rospy.spin()
 
     def nextNavTarget(self):
         rospy.logdebug("FieldTrip: Get Nav Target")
-        self.targetTag = self.tsp[self.current]
-        goalData = PlanGoalGoal(x=self.targetTag.x, y=self.targetTag.y)
-        rospy.logdebug("FieldTrip: Send Nav Target")
+        targetTag = self.tsp[self.current]
+        goalData = PlanGoalGoal(x=targetTag.x, y=targetTag.y)
+        rospy.logdebug("FieldTrip: Send Nav Target {}".format(targetTag))
         self.client.send_goal(
             goal=goalData,
             done_cb=self.onDoneGoal
@@ -112,10 +111,21 @@ class FieldTrip:
         rospy.logdebug("FieldTrip: Finished Scenario")
 
     def subTagReached(self, data):
+        rospy.logdebug("FieldTrip: Reached Msg: {}".format(data))
         if data.hasReached.data:
-            if data.tagID in self.taglist:
-                # TODO Throw tag out of list to visit and recalculate path
-                pass
+            rospy.logdebug("FieldTrip: Tag was reached")
+            idx =0
+            for tag in self.taglist:
+                if data.tag.global_id  == tag.global_id:
+                    if not self.visited[idx]:
+                        rospy.logdebug("FieldTrip: Tag set visited to True")
+                        self.visited[idx] = True
+                        if idx == self.current:
+                            rospy.logdebug("FieldTrip: Active Goal was reached by other robot or marked from CLI")
+                            self.onDoneGoal(None, None)
+                    break
+                else:
+                    idx += 1
 
 
     def plan_global(self, startMapPose):
@@ -153,7 +163,7 @@ class FieldTrip:
         paths = [[None for col in range(len(tagList))] for row in range(len(tagList))]
         print paths
         costmapMsg = rospy.wait_for_message("/costmap_node/costmap/costmap", OccupancyGrid)
-        costmap = np.reshape(costmapMsg.data, (costmapMsg.info.height, costmapMsg.info.width))
+        costmap = np.array(costmapMsg.data, dtype=np.int8).reshape(costmapMsg.info.height,costmapMsg.info.width)
         for p in list(itertools.combinations(range(len(tagList)), 2)):
             start = tagList[p[0]]
             goal = tagList[p[1]]
@@ -164,8 +174,8 @@ class FieldTrip:
                     neighbors_fnct=lambda cell: self.neighborsForCell(costmap, cell),
                     reversePath=False,
                     heuristic_cost_estimate_fnct=self.euclideanDistanceBetweenCells,
-                    distance_between_fnct=lambda a, b: 1,
-                    is_goal_reached_fnct=lambda a, b: a == b
+                    distance_between_fnct=lambda a, b: 1 + self.extractCostAt(costmap, costmapMsg.info, b[0], b[1]),
+                    is_goal_reached_fnct=lambda a, b: abs(a[0] - b[0]) < 0.5 and abs(a[1] - b[1]) < 0.5
                 ))
                 print("Path {}".format(path))
                 cost = len(path)
@@ -177,13 +187,29 @@ class FieldTrip:
         return paths
 
 
+    @staticmethod
+    def extractCostAt(costmap, info, x, y):
+        if -1 < x < info.width and -1 < y < info.height:
+            # data comes in row-major order http://docs.ros.org/en/melodic/api/nav_msgs/html/msg/OccupancyGrid.html
+            # first index is the row, second index the column
+            return costmap[y][x]
+        else:
+            raise IndexError(
+                "Coordinates out of gridmap, x: {}, y: {} must be in between: [0, {}], [0, {}]".format(
+                    x, y, info.height, info.width))
 
-    def neighborsForCell(self, costmap, cell):
+
+
+    def neighborsForCell(self, cm, cell):
         l = []
         for direction in cardinals:
             target = add(cell, direction)
-            if costmap[target[0]][target[1]] < self.neighbourThreshold:
-                l.append(target)
+            try:
+                if cm[target[0]][target[1]] < self.neighbourThreshold:
+                    l.append(target)
+            except IndexError:
+                pass
+                # rospy.logwarn("PlanPath: Costmap index access outside of bounds: {}".format(target))
         return l
 
     @staticmethod

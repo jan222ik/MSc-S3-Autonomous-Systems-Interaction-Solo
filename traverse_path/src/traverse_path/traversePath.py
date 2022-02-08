@@ -32,6 +32,19 @@ class TraversePath:
         self.actionServer.start()
         rospy.logdebug("TraversePath: Started Action Server")
 
+    def thinTraversalPoints(self, points):
+        isV = False
+        isH = False
+        last = points[0]
+        n = []
+
+        for idx in range(1, len(points)):
+            it = points[idx]
+            dx = abs(last.x - it.x) == 1
+            dy = abs(last.y - it.y) == 1
+
+
+
     def _nextActionGoal(self, data):
         self.traversalPoints = data.traversal_points
         self.externalCancel = False
@@ -66,10 +79,9 @@ class TraversePath:
             goalPose = self.toGoalPose(traversalPoint, self.mapInfo)
             goal = PlodGoal()
             goal.target = goalPose
+            goal.waitAfter = Bool(self.traversalIdx + 1 == len(self.traversalPoints))
             self._publishRvisPoints(self.traversalPoints)
             self.ploddingClient.send_goal(goal, done_cb=self._onDone)
-
-            # TODO add callback when goal was reached to schedule next goal
 
         else:
             self.externalCancel = True

@@ -33,6 +33,7 @@ class PloddingTurtle:
         self.logLastDistance = 0.0
         self.logBranch = 0
         self.isDone = False
+        self.waitAfter = False
         rospy.loginfo("Plodding: Startup")
         self.pubTwist = rospy.Publisher('cmd_vel', Twist, queue_size=10)
         self.pubSound = rospy.Publisher("sound", Sound, queue_size=10)
@@ -56,6 +57,7 @@ class PloddingTurtle:
         self.externalCancel = False
         self.isDone = False
         self.goalPose = data.target
+        self.waitAfter = data.waitAfter
 
         self._changeState(State_Plodding())
 
@@ -90,6 +92,7 @@ class PloddingTurtle:
             self.state = nextState
 
     def playSound(self):
+        rospy.loginfo("Plodding: Play Tag Sound")
         self.pubSound.publish(Sound(value=3))
 
     @staticmethod
