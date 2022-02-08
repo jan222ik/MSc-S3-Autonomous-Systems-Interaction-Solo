@@ -64,13 +64,13 @@ class TagDetector:
 
     def turn_left(self):
         twist = Twist()
-        twist.linear.x = 0.05
+        twist.linear.x = 0.00
         twist.angular.z = 0.1
         self.vel.publish(twist)
 
     def turn_right(self):
         twist = Twist()
-        twist.linear.x = 0.05
+        twist.linear.x = 0.00
         twist.angular.z = -0.1
         self.vel.publish(twist)
 
@@ -246,72 +246,31 @@ class TagDetector:
                         print("FLIPPED POINT: ", flipped_cen, ", FLIPPED ORIGIN: ", flipped_origin)
                         new_line_len = np.linalg.norm(np.array((flipped_cen[1] - flipped_origin[1],flipped_cen[0] - flipped_origin[0])))
                         new_line_angle = int((math.atan2((flipped_origin[1] - flipped_cen[1]), (flipped_origin[0] - flipped_cen[0])) * 180 / math.pi))
+                        if new_line_angle < 0:
+                            new_line_angle = 360 + new_line_angle
                         print("NEW LINE LENGTH: ", new_line_len)
                         print("NEW LINE ANGLE: ", new_line_angle)
 
-                        if self.test_poso is not None:
-                            # get robot angel and rotate
-                            rot_point = self.rotate(flipped_origin, flipped_cen, self.test_poso.angle)
-                            # calculate map pos (scale rot_point, find out best value here)
-                            map_y = self.test_poso.y + rot_point[0]//20
-                            map_x = self.test_poso.x + (-1 * rot_point[1]//20) # x direction is flipped in map
-                            print("TAG POS IN MAP: Y: ", map_y, ", X: ", map_x)
-                            self.add_tag_with_tagstore(int(map_y), int(map_x))
+                        if new_line_angle > 90:
+                            twist = Twist()
+                            twist.linear.x = 0.0
+                            twist.angular.z = 0.1
+                            self.vel.publish(twist)
+                        elif new_line_angle < 90:
+                            twist = Twist()
+                            twist.linear.x = 0.0
+                            twist.angular.z = -0.1
+                            self.vel.publish(twist)
+                        else:
+                            if self.test_poso is not None:
+                                # get robot angel and rotate
+                                rot_point = self.rotate(flipped_origin, flipped_cen, self.test_poso.angle)
+                                # calculate map pos (scale rot_point, find out best value here)
+                                map_y = self.test_poso.y + rot_point[0]//20
+                                map_x = self.test_poso.x + (-1 * rot_point[1]//20) # x direction is flipped in map
+                                print("TAG POS IN MAP: Y: ", map_y, ", X: ", map_x)
+                                self.add_tag_with_tagstore(int(map_y), int(map_x))
 
-
-
-
-                        """
-                        rect_point = self.cam.rectifyPoint((cX, cY))
-                        test_pt = self.calculate_3d_point(rect_point)
-                        new_x = self.cur_pose.point.x + test_pt.point.x
-                        new_y = self.cur_pose.point.y + test_pt.point.y
-                        print("TEST POINT: ", test_pt)
-                        p = self.convert_point_direct(test_pt, "map")
-                        print("CONVERTED POINT: ", p)
-                        map_x = new_x
-                        map_y = new_y
-                        if self.mapInfo.resolution > 0:
-                            grid_x = ((map_x - self.mapInfo.origin.position.x) / self.mapInfo.resolution)
-                            grid_y = ((map_y - self.mapInfo.origin.position.y) / self.mapInfo.resolution)
-            
-                            print("X: ", grid_x, ", Y: ", grid_y)
-            
-                            self.add_tag_with_tagstore(int(grid_y), int(grid_x))
-                        """
-                        """
-                        cv2.drawContours(result1, [c], 0, (0, 0, 0), 2)
-                        # get first point of contour position
-                        x = c[0][0][0]
-                        y = c[0][0][1]
-                        print(self.mapInfo)
-            
-                        # get depth at point
-                        depth_at_point = self.depth_image[x, y]
-            
-                        # circle point in image (to check)
-                        cv2.circle(cv_image, (x, y), 20, (0, 255, 0))
-            
-                        rect_point = self.cam.rectifyPoint((x, y))
-                        cam_ray = np.array(self.cam.projectPixelTo3dRay(rect_point))
-                        cam_point = cam_ray * depth_at_point
-            
-                        # cur_point = (self.cur_pose.point.x + cam_point[0], self.cur_pose.point.y + cam_point[1])
-            
-                        p = self.convert_point(cam_point[0], cam_point[1], "camera_link", "map")
-            
-                        map_x = p.point.x
-                        map_y = p.point.y
-            
-                        # TODO: not quite right, find error and fix!
-                        if self.mapInfo.resolution > 0:
-                            grid_x = ((map_x - self.mapInfo.origin.position.x) / self.mapInfo.resolution)
-                            grid_y = ((map_y - self.mapInfo.origin.position.y) / self.mapInfo.resolution)
-            
-                            print("X: ", grid_x, ", Y: ", grid_y)
-            
-                            self.add_tag_with_tagstore(int(grid_x) + 1, int(grid_y) + 1)
-                    """
             cv2.imshow("image", cv_image)
             self.rate_count = 0
             cv2.waitKey(3)
