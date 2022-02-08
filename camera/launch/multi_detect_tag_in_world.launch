@@ -6,5 +6,5 @@
     </include>
     <include file="$(find tagstore)/launch/tagstore.launch"/>
     <node pkg="transformations_odom" name="tf_odom" type="poseconversions.py" output="screen"/>
-    <node pkg="camera" name="camera_node" type="goto_camera.py" output="screen"/>
+    <node pkg="camera" name="camera_node" type="camera_V2.py" output="screen"/>
 </launch>

@@ -27,7 +27,7 @@ class TagsToMap:
 
     def __init__(self):
         rospy.init_node('tags_to_map', anonymous=True)
-        self.image_pub = rospy.Publisher("/image_topic_tag", Image)
+        self.image_pub = rospy.Publisher("/image_topic_tag", Image, queue_size=1)
         self.vel = rospy.Publisher('/cmd_vel', Twist, queue_size=1)
         self.bridge = CvBridge()
         self.raspi_sub = rospy.Subscriber("/raspicam_node/image/compressed", CompressedImage, self.raspi_callback)
@@ -106,9 +106,7 @@ class TagsToMap:
                     if M["m00"] != 0.0:
                         cX = int(M["m10"] / M["m00"])
                         cY = int(M["m01"] / M["m00"])
-                        center_arr.append((cX, cY))
-                        c_y = cv_image.shape[0]//2
-                        c_x = cv_image.shape[1]//2
+
                         # draw the contour and center of the shape on the image
                         cv2.drawContours(cv_image, [c], -1, (0, 255, 0), 2)
                         cv2.circle(cv_image, (cX, cY), 7, (255, 255, 255), -1)
@@ -118,42 +116,53 @@ class TagsToMap:
                         cv2.putText(cv_image, "center_image", (center_x - 20, h - 20),
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
                         cv2.line(cv_image, (center_x, h), (cX, cY), (255, 0, 0), 2)
-                        #print("cx: ", cX, ", cy: ", cY, ", center_x: ", center_x, ", center_y: ", center_y)
+
+                        # TODO: remove for real sim runs
                         center_x = cX  # test for simulation, since camera is not aligned properly there
+
                         # origin is in camera center, move other point
                         new_origin = (h - h, center_x - center_x)
                         new_cen = (cY - h, cX - center_x)
-                        #print("NEW POINT: ", new_cen, "; ORIGIN: ", new_origin)
+
                         # flip y values
                         flipped_origin = (new_origin[0] * -1, new_origin[1])
                         flipped_cen = (new_cen[0] * -1, new_cen[1])
-                        print("FLIPPED POINT: ", flipped_cen, ", FLIPPED ORIGIN: ", flipped_origin)
-                        new_line_len = np.linalg.norm(np.array((flipped_cen[1] - flipped_origin[1],flipped_cen[0] - flipped_origin[0])))
-                        new_line_angle = int((math.atan2((flipped_origin[1] - flipped_cen[1]), (flipped_origin[0] - flipped_cen[0])) * 180 / math.pi))
+
+                        # calculate vector
+                        vec = (flipped_cen[0] - flipped_origin[0], flipped_cen[1] - flipped_origin[1])
+
+                        # calculate line length
+                        new_line_len = np.linalg.norm((vec[0], vec[1]))
+                        # calulcate angle between origin and center
+                        new_line_angle = (math.atan2(vec[0], vec[1]) * 180) / math.pi
+                        #new_line_angle = int((math.atan2((flipped_origin[1] - flipped_cen[1]), (flipped_origin[0] - flipped_cen[0])) * 180 / math.pi))
                         if new_line_angle < 0:
-                            new_line_angle = 360 + new_line_angle
+                            # new_line_angle = 360 + new_line_angle
+                            print("HOW DID THIS HAPPEN?!")
                         print("NEW LINE LENGTH: ", new_line_len)
                         print("NEW LINE ANGLE: ", new_line_angle)
 
-                        if new_line_angle > 90:
-                            twist = Twist()
-                            twist.linear.x = 0.0
-                            twist.angular.z = 0.1
-                            self.vel.publish(twist)
-                        elif new_line_angle < 90:
-                            twist = Twist()
-                            twist.linear.x = 0.0
-                            twist.angular.z = -0.1
-                            self.vel.publish(twist)
-                        else:
-                            if self.test_poso is not None:
-                                # get robot angel and rotate
-                                rot_point = self.rotate(flipped_origin, flipped_cen, self.test_poso.angle)
-                                # calculate map pos (scale rot_point, find out best value here)
-                                map_y = self.test_poso.y + rot_point[0]//20
-                                map_x = self.test_poso.x + (-1 * rot_point[1]//20) # x direction is flipped in map
-                                print("TAG POS IN MAP: Y: ", map_y, ", X: ", map_x)
-                                self.add_tag_with_tagstore(int(map_y), int(map_x))
+                        #if new_line_angle > 90:
+                         #   twist = Twist()
+                          #  twist.linear.x = 0.0
+                           # twist.angular.z = 0.1
+                            #self.vel.publish(twist)
+                        #elif new_line_angle < 90:
+                         #   twist = Twist()
+                          #  twist.linear.x = 0.0
+                           # twist.angular.z = -0.1
+                            #self.vel.publish(twist)
+                        #else:
+                        if self.robot_pose is not None:
+                            # get robot angel and rotate
+                            rot_point = self.rotate(flipped_origin, flipped_cen, self.robot_pose.angle)
+                            # calculate map pos
+                            # TODO: determine proper scaling
+                            map_y = self.robot_pose.y + rot_point[0]//20
+                            map_x = self.robot_pose.x + (-1 * rot_point[1]//20)  # x direction is flipped in map
+                            print("TAG POS IN MAP: Y: ", map_y, ", X: ", map_x)
+                            # TODO: works in principle, but uncertainty leads to tag overload, fix this
+                            self.add_tag_with_tagstore(int(map_y), int(map_x))
 
             cv2.imshow("image", cv_image)
             self.rate_count = 0
