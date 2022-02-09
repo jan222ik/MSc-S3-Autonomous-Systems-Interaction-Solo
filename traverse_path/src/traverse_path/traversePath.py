@@ -20,24 +20,72 @@ class TraversePath:
         rospy.loginfo("TraversePath: Startup")
         self.rate = rospy.Rate(200)
         self.pubRvisMarkerArray = rospy.Publisher("traversal_points_marker_array", MarkerArray, queue_size = 1)
-        rospy.logdebug("TraversePath: Await map message for MapInfo")
+        rospy.loginfo("TraversePath: Await map message for MapInfo")
         self.mapInfo = MapMetaData()
         self.mapInfo = rospy.wait_for_message("map", OccupancyGrid).info
-        rospy.logdebug("TraversePath: Waiting for Plodding Action Server")
+        rospy.loginfo("TraversePath: Waiting for Plodding Action Server")
         self.ploddingClient = actionlib.SimpleActionClient("plodding_action_server", PlodAction)
         self.ploddingClient.wait_for_server()
-        rospy.logdebug("TraversePath: Received Plodding Action Server")
-        rospy.logdebug("TraversePath: Starting Action Server")
+        rospy.loginfo("TraversePath: Received Plodding Action Server")
+        rospy.loginfo("TraversePath: Starting Action Server")
         self.actionServer = actionlib.SimpleActionServer("traversal_action_server", TraversePathAction, execute_cb=self._nextActionGoal, auto_start = False)
         self.actionServer.start()
-        rospy.logdebug("TraversePath: Started Action Server")
+        rospy.loginfo("TraversePath: Started Action Server")
+
+    def thinTraversalPoints(self, points):
+        isV = False
+        isH = False
+        last = points[0]
+        n = [last]
+        countEmpty = 0
+
+        for idx in range(1, len(points) - 1):
+            it = points[idx]
+            rospy.loginfo("Traverse > Thin Points: Idx:{} isH:{} isV{} dx:{} dy:{}".format(idx, isH, isV, abs(last.x - it.x), abs(last.y - it.y)))
+            dx = abs(last.x - it.x) == 1
+            dy = abs(last.y - it.y) == 1
+
+            add = False
+            if dx and dy:
+                if isH and isV:
+                    pass
+                else:
+                    add = True
+            else:
+                if isV:
+                    if dy:
+                        pass
+                    else:
+                        add = True
+                elif isH:
+                    if dx:
+                        pass
+                    else:
+                        add = True
+
+            if add or countEmpty > 3:
+                n.append(it)
+                countEmpty = 0
+            else:
+                countEmpty += 1
+
+            isH = dx
+            isV = dy
+            last = it
+
+        n.append(points[len(points) - 1])
+        rospy.loginfo("Traverse > Thin Points: Before:{} After:{}".format(len(points), len(n)))
+        return n
+
+
+
 
     def _nextActionGoal(self, data):
-        self.traversalPoints = data.traversal_points
+        self.traversalPoints = self.thinTraversalPoints(data.traversal_points)
         self.externalCancel = False
         self.traversalIdx = 0
 
-        self._publishRvisPoints(self.traversalPoints)
+
 
         self._scheduleNextGoal()
 
@@ -50,6 +98,7 @@ class TraversePath:
             if self.actionServer.is_preempt_requested():
                 rospy.loginfo("TraversePath: Requested Cancel")
                 self.externalCancel = True
+                self.ploddingClient.cancel_all_goals()
 
             feedback.feedback.current_traversal_idx = self.traversalIdx
             self.actionServer.publish_feedback(feedback.feedback)
@@ -60,14 +109,15 @@ class TraversePath:
 
 
     def _scheduleNextGoal(self):
-        if self.traversalIdx < len(self.traversalPoints):
+        if self.traversalIdx < len(self.traversalPoints) and not self.externalCancel:
             traversalPoint = self.traversalPoints[self.traversalIdx]
             rospy.loginfo("TraversePath: Next Goal: {}".format(traversalPoint))
             goalPose = self.toGoalPose(traversalPoint, self.mapInfo)
             goal = PlodGoal()
             goal.target = goalPose
+            goal.waitAfter = Bool(self.traversalIdx + 1 == len(self.traversalPoints))
+            self._publishRvisPoints(self.traversalPoints)
             self.ploddingClient.send_goal(goal, done_cb=self._onDone)
-            # TODO add callback when goal was reached to schedule next goal
 
         else:
             self.externalCancel = True

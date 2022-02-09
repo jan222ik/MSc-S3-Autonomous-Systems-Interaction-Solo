@@ -22,6 +22,13 @@ settitle Odom & roslaunch transformations_odom transformations_odom.launch
 # Start Tagstore
 settitle TagStore & roslaunch tagstore tagstore.launch
 
+
+# ABOVE or
+settitle Combined & roslaunch plan_path sim-slam-odom.launch
+
+
+settitle CostMap & roslaunch plan_path costmap.launch
+
 # Start Plodding Node to provide Action Server
 settitle Plodding & rosrun plodding turtle.py
 
@@ -30,6 +37,9 @@ settitle TraversePath & roslaunch traverse_path traverse_path.launch
 
 # Start Plan Path Node
 settitle PlanPath & rosrun plan_path planPath.py
+
+# Start Field Trip
+settitle FieldTrip & rosrun field_trip fieldTrip.py
 
 
 # Drive Bot to better observe changes otherwise coordinates will stay the same
@@ -40,4 +50,6 @@ rosservice call /tagstore-reset-rvis-markers
 
 
 # Call service
-rosservice call /tagstore-addtag -- 150 150
+rosservice call /tagstore_addtag -- 150 150
+
+rosservice call /collab_tag_reached -- 3
