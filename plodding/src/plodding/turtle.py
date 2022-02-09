@@ -12,6 +12,7 @@ from transformations_odom.msg import PoseTF, PoseInMap
 from geometry_msgs.msg import Twist, Pose
 from plodding.msg import PlodAction, PlodActionResult, PlodResult, PlodActionFeedback
 from turtlebot3_msgs.msg import Sound
+from plodding.srv import RotateQuarterPi, RotateQuarterPiResponse
 
 
 class PloddingTurtle:
@@ -37,6 +38,10 @@ class PloddingTurtle:
         rospy.loginfo("Plodding: Startup")
         self.pubTwist = rospy.Publisher('cmd_vel', Twist, queue_size=10)
         self.pubSound = rospy.Publisher("sound", Sound, queue_size=10)
+        rospy.Service(
+            name = "plodding_rotate_quarter_pi",
+            service_class=RotateQuarterPi
+            , handler = self._srvRotate45Degree)
         self.currentPose = Pose()
         self.mapPose = PoseInMap()
         self.goalPose = Pose()
@@ -207,6 +212,20 @@ class PloddingTurtle:
         angleRange = abs(abs(self.calcAngleTowardsPose(self.goalPose.position)) - math.pi)
         self.logSteer = angleRange
         return angleRange <= goalPoseAngleThreshold
+
+    def _srvRotate45Degree(self, data):
+        start = self.mapPose.angle
+        current = start
+        rate = rospy.Rate(hz = 10)
+        while not rospy.is_shutdown() and abs(current - start) < math.pi / 4:
+            print abs(current - start)
+            self.publishTwistMessage(linearSpeed=0, angularSpeed=0.2)
+            rate.sleep()
+            current = self.mapPose.angle
+        self.stop()
+
+        return RotateQuarterPiResponse(Bool(not rospy.is_shutdown()))
+
 
 
 class StateInterface:
