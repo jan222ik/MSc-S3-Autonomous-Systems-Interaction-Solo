@@ -27,6 +27,7 @@ class Tagstore:
         self.rvisMarkerArray = MarkerArray()
 
         self.srvAddTag = rospy.Service("tagstore_addtag", TagstoreAddTag, self._srvAddTag)
+        self.srvTagAt = rospy.Service("tagstore_tag_at", TagstoreAddTag, self._srvTagAt)
         self.srvResetRVisMarkers = rospy.Service("tagstore_reset_rvis_markers", TagstoreResetRVis, self._srvResetRVisMarkers)
         self.srvAllTags = rospy.Service("tagstore_alltags", TagstoreAllTags, self._srvAllTags)
 
@@ -95,6 +96,17 @@ class Tagstore:
             res.data = True
 
         rospy.logdebug("Tagstore > Service > AddTag: Res success?: {}".format(res.data))
+        return TagstoreAddTagResponse(res)
+
+    def _srvTagAt(self, srvData):
+        x = srvData.x
+        y = srvData.y
+
+        findExisting = self._findTagAt(x, y)
+        res = Bool()
+        res.data = findExisting is None
+
+        rospy.logdebug("Tagstore > Service > Tag At: Res success?: {}".format(res.data))
         return TagstoreAddTagResponse(res)
 
     def _srvCollabTagReached(self, srvData):

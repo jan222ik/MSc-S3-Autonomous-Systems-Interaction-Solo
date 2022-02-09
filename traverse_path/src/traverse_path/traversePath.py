@@ -19,7 +19,7 @@ class TraversePath:
         rospy.init_node('traverse_path', log_level=rospy.INFO, anonymous=True)
         rospy.loginfo("TraversePath: Startup")
         self.rate = rospy.Rate(200)
-        self.pubRvisMarkerArray = rospy.Publisher("traversal_points_marker_array", MarkerArray, queue_size = 1)
+        self.pubRvisMarkerArray = rospy.Publisher("traversal_points_marker_array", MarkerArray, queue_size = 100)
         rospy.loginfo("TraversePath: Await map message for MapInfo")
         self.mapInfo = MapMetaData()
         self.mapInfo = rospy.wait_for_message("map", OccupancyGrid).info
