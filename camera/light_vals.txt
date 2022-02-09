@@ -1,0 +1,7 @@
+# lab (with light):
+HSV_LOWER = (150, 100, 20)
+HSV_UPPER = (180, 255, 255)
+
+# default (simulation):
+HSV_LOWER = (0, 150, 150)
+HSV_UPPER = (40, 255, 255)
