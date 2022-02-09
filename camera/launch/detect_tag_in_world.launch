@@ -12,6 +12,6 @@
         <arg name="slam_methods" value="gmapping"/>
     </include>
     <include file="$(find tagstore)/launch/tagstore.launch"/>
-    <node pkg="transformations_odom" name="tf_odom" type="poseconversions.py" output="screen"/>
+    <node pkg="transformations_odom" name="tf_odom" type="poseconversions.py" output="log"/>
     <node pkg="camera" name="test_test" type="camera_V2.py" output="screen"/>
 </launch>
