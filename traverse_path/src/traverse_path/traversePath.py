@@ -98,6 +98,7 @@ class TraversePath:
             if self.actionServer.is_preempt_requested():
                 rospy.loginfo("TraversePath: Requested Cancel")
                 self.externalCancel = True
+                self.ploddingClient.cancel_all_goals()
 
             feedback.feedback.current_traversal_idx = self.traversalIdx
             self.actionServer.publish_feedback(feedback.feedback)
@@ -108,7 +109,7 @@ class TraversePath:
 
 
     def _scheduleNextGoal(self):
-        if self.traversalIdx < len(self.traversalPoints):
+        if self.traversalIdx < len(self.traversalPoints) and not self.externalCancel:
             traversalPoint = self.traversalPoints[self.traversalIdx]
             rospy.loginfo("TraversePath: Next Goal: {}".format(traversalPoint))
             goalPose = self.toGoalPose(traversalPoint, self.mapInfo)

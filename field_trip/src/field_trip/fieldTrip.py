@@ -78,7 +78,7 @@ class FieldTrip:
 
 
         self.subTagReached = rospy.Subscriber("collab_tag_approach", Collab, self.subTagReached)
-        self.pubTagReached = rospy.Publisher("collab_tag_approach", Collab, queue_size=1)
+        self.pubTagReached = rospy.Publisher("collab_tag_approach", Collab, queue_size=50)
 
         self.visited = [False for i in range(len(self.taglist))]
         self.current = 0
@@ -106,8 +106,9 @@ class FieldTrip:
 
         rospy.logdebug("FieldTrip: Finished > Publish Goal to Stop Robot")
         # Publish another goal to stop the robot in case the last goal gets canceled
-        pose = rospy.wait_for_message("pose_tf", PoseTF).mapPose
-        self.client.send_goal_and_wait(goal= PlanGoalGoal(x=pose.x, y=pose.y))
+        self.client.cancel_all_goals()
+        # pose = rospy.wait_for_message("pose_tf", PoseTF).mapPose
+        # self.client.send_goal_and_wait(goal= PlanGoalGoal(x=pose.x, y=pose.y))
         rospy.logdebug("FieldTrip: Finished Scenario")
 
 

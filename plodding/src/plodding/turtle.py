@@ -60,7 +60,8 @@ class PloddingTurtle:
         self.waitAfter = not data.waitAfter
         self.lastDistance = 10000000
 
-        self._changeState(State_Plodding())
+        # self._changeState(State_Plodding())
+        self._changeState(State_RotateTowards())
 
         result = PlodActionResult()
         result.result = PlodResult()
@@ -200,10 +201,12 @@ class PloddingTurtle:
         self.logSteer = angleRange
         return angleRange <= self.goalAngleThreshold
 
-    def isInGoalPoseRotationRange(self):
+    def isInGoalPoseRotationRange(self, goalPoseAngleThreshold=None):
+        if goalPoseAngleThreshold is None:
+            goalPoseAngleThreshold = self.goalPoseAngleThreshold
         angleRange = abs(abs(self.calcAngleTowardsPose(self.goalPose.position)) - math.pi)
         self.logSteer = angleRange
-        return angleRange <= self.goalPoseAngleThreshold
+        return angleRange <= goalPoseAngleThreshold
 
 
 class StateInterface:
@@ -213,6 +216,32 @@ class StateInterface:
     def run(self, turtle):
         pass
 
+
+class State_RotateTowards(StateInterface):
+    def name(self): return "Rotate Towards"
+    def run(self, turtle):
+        isInGoalPoseRotationRange = turtle.isInGoalPoseRotationRange(goalPoseAngleThreshold = 0.2)
+
+        linear = 0
+        angular = 0
+        nextState = self
+
+        turtle.logBranch = 0
+        if not isInGoalPoseRotationRange:
+            turtle.logBranch = 1
+            # Location Reached but Rotation is still needed
+            angular = turtle.angularSpeedFor2(
+                turtle.calcAngleTowardsPose(turtle.goalPose.position)
+            )
+        else:
+            nextState = State_Plodding()
+
+        turtle.publishTwistMessage(
+            linearSpeed=linear,
+            angularSpeed=angular
+        )
+
+        return nextState
 
 class State_Idle(StateInterface):
     def name(self): return "Idle"
@@ -260,6 +289,10 @@ class State_Plodding(StateInterface):
             linear = turtle.LINEAR_MAX_SPEED
         else:
             turtle.logBranch = 3
+            angular = turtle.angularSpeedFor2(
+                turtle.calcAngleTowardsPose(turtle.goalPose.position)
+            )
+            """
             angular = turtle.angularSpeedFor(
                 currentAngle=turtle.calcAngle(
                     first=turtle.goalPose,
@@ -267,6 +300,7 @@ class State_Plodding(StateInterface):
                 ),
                 targetAngle=turtle.mapPose.angle
             )
+            """
             linear = turtle.LINEAR_MAX_SPEED / 2
 
         turtle.publishTwistMessage(

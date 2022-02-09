@@ -74,7 +74,7 @@ class PlanPath:
             if self.actionServer.is_preempt_requested():
                 rospy.loginfo("PlanPath: Requested Cancel")
                 self.externalCancel = True
-
+                self.client.cancel_all_goals()
             self.rate.sleep()
 
         result.has_finished.data = self.isDone
@@ -127,11 +127,13 @@ class PlanPath:
             nextPoint = point
             traversalPoints.append(TraversalPoint(point[0], point[1], angle))
 
-        return traversalPoints[::-1]
+        waypoints = traversalPoints[::-1]
+        if len(waypoints) > 1:
+            waypoints.pop(0)
+        return waypoints
 
     def costBetween(self, a, b, costmap, info):
         cost = 1 + max(0, self.extractCostAt(costmap, info, b[0], b[1]))
-        print cost
         return cost
 
     @staticmethod
