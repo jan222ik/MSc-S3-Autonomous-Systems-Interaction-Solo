@@ -119,7 +119,11 @@ class PlanPath:
             if nextPoint is None:
                 angle = 0
             else:
-                angle = self.angle_between([1,0], point)
+                vec = (
+                    point[0] - nextPoint[0],
+                    point[1] - nextPoint[1],
+                )
+                angle = self.angle_between([1,0], vec)
             nextPoint = point
             traversalPoints.append(TraversalPoint(point[0], point[1], angle))
 

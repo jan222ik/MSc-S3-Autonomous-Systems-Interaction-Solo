@@ -57,7 +57,8 @@ class PloddingTurtle:
         self.externalCancel = False
         self.isDone = False
         self.goalPose = data.target
-        self.waitAfter = data.waitAfter
+        self.waitAfter = not data.waitAfter
+        self.lastDistance = 10000000
 
         self._changeState(State_Plodding())
 
@@ -230,7 +231,11 @@ class State_Plodding(StateInterface):
         if isInGoalDistanceRange and isInGoalPoseRotationRange:
             # Exit Goal Reached
             turtle.stop()
-            return State_Timeout()  # TODO pass idle or timeout state based on goal message param
+            if turtle.waitAfter:
+                return State_Timeout()
+            else:
+                turtle.isDone = True
+                return State_Idle()
 
         linear = 0
         angular = 0
