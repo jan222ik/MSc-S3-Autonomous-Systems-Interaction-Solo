@@ -1,0 +1,3 @@
+<launch>
+    <node pkg="field_trip" name="fieldtrip" type="fieldTrip.py" output="screen"/>
+</launch>

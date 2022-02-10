@@ -14,7 +14,7 @@ from actionlib_msgs.msg import GoalID
 from tagstore.msg import Collab
 from tagstore.srv import TagstoreAllTags, TagstoreAddTag
 from plan_path.msg import PlanGoalAction, PlanGoalGoal
-from transformations_odom.msg import PoseTF
+from transformations_odom.msg import PoseTF, PoseInMap
 from plodding.srv import RotateQuarterPi
 
 
@@ -51,17 +51,18 @@ class Explorer:
         self.cameraCostmap = [[]]
         self.cameraCostmapInfo = None
         self.poseTF = None
+        self.assumedTagPose = PoseInMap(0, 0, 0)
         ### SUBSCRIBER
         rospy.logdebug("Explorer: Create Subscribers")
         rospy.logdebug("Explorer > Subscribers > '/camera/tag/visible'")
         rospy.Subscriber(
-            name = '/camera/tag/visible', # TODO Check Topic Name
-            data_class=PoseTF, # TODO Change Topic Message Type
+            name = '/camera/tag/visible',
+            data_class=PoseInMap,
             callback=self._cb_tag_in_camera_pov
         )
         rospy.logdebug("Explorer > Subscribers > '/camera/tag/costmap'")
         rospy.Subscriber(
-            name = "/camera/tag/costmap", # TODO Check Topic Name
+            name = "/camera/tag/costmap",
             data_class = OccupancyGrid,
             callback= self._cb_camera_pov_costmap
         )
@@ -114,6 +115,7 @@ class Explorer:
         self.state.enter(explorer = self)
         while not rospy.is_shutdown() and not self.isDone:
             self._changeState(self.state.run(explorer = self))
+            rospy.logdebug_throttle(1, "Explorer > State > {}".format(self.state))
             self.rate.sleep()
 
         rospy.logdebug("Explorer: Finished Scenario")
@@ -126,10 +128,12 @@ class Explorer:
             self.state.enter(explorer = self)
 
     def _cb_tag_in_camera_pov(self, data):
+        # type: (PoseInMap) -> None
         # Check if there is a registered tag in the area
         # TODO Use actual coords given from data, check if x == y and y == x
-        isExistingTag = self.tagLookupSrv(x = 0, y =0).successful
+        isExistingTag = self.tagLookupSrv(x = data.x, y =data.y).successful
         if not isExistingTag:
+            self.assumedTagPose = data
             # noinspection PyTypeChecker
             self._changeState(nextState = self.stateTagApproach)
 
@@ -193,6 +197,7 @@ class State_TagApproach(StateInterface):
     def __init__(self):
         StateInterface.__init__(self)
         self.busyEnter = False
+        self.isActive = True
 
     def name(self): return "TagApproach"
 
@@ -201,10 +206,13 @@ class State_TagApproach(StateInterface):
         # TODO Do work
         self.busyEnter = False
 
+    def _onDone(self, goalId, result):
+        self.isActive = False
+
     def run(self, explorer):
-        if not self.busyEnter:
-            pass
-            # TODO Do work
+        if not self.isActive:
+            return explorer.stateUnknownApproach
+
         return self
 
     def cancel(self, explorer):
@@ -248,12 +256,10 @@ class State_UnknownApproach(StateInterface):
     def run(self, explorer):
 
         if not self.isActive:
-            return explorer.stateUnknownApproach
-            # TODO next goal or state
+            return explorer.stateUnseenApproach
         elif self.rotate:
             if self.rotateCount < 4:
                 self.rotateCount+=1
-                # TODO Check if block thread
                 explorer.rotateQuarter()
             else:
                 self.isActive = False
@@ -280,7 +286,7 @@ class State_UnknownApproach(StateInterface):
                 x = curr[0],
                 y = curr[1]
             ) + mapVal
-            rospy.logdebug("Look at: {} with cost of {}, len {}".format(curr, currValue, len(expandList)))
+            # rospy.logdebug("Look at: {} with cost of {}, len {}".format(curr, currValue, len(expandList)))
             neighbours = self.neighborsForCell(
                 costmap=costmap,
                 cell=curr,
@@ -292,7 +298,7 @@ class State_UnknownApproach(StateInterface):
                 localVisited = self.visited[:]
                 localExpand = neighbours[:]
                 localPoint = None
-                rospy.logdebug("Inner Look at: {} with cost of {}".format(curr, currValue))
+                # rospy.logdebug("Inner Look at: {} with cost of {}".format(curr, currValue))
                 while len(localExpand) > 0 and blobSizeCount < minCount:
                     localPoint = localExpand.pop(0)
                     mapVal = min(0, explorer.extractValueAtOccupancyGrid(
@@ -339,8 +345,6 @@ class State_UnknownApproach(StateInterface):
                 except IndexError:
                     pass
                     # rospy.logwarn("PlanPath: Costmap index access outside of bounds: {}".format(target))
-            else:
-                rospy.logdebug("Already Visited")
         return l
 
 class State_UnseenApproach(StateInterface):
@@ -358,7 +362,7 @@ class State_UnseenApproach(StateInterface):
     def enter(self, explorer):
         self.busyEnter = True
         self.isActive = True
-        point = self.findClosestUnknownOfSize(
+        point = self.findClosestUnseenOfSize(
             mapPose = explorer.poseTF.mapPose,
             cameramap= explorer.cameraCostmap,
             costmap= explorer.costmap,
@@ -380,7 +384,7 @@ class State_UnseenApproach(StateInterface):
     def run(self, explorer):
 
         if not self.isActive:
-            return explorer.stateUnseenApproach
+            return explorer.stateUnknownApproach
             # TODO next goal or state
         elif self.rotate:
             if self.rotateCount < 4:
@@ -395,7 +399,7 @@ class State_UnseenApproach(StateInterface):
     def cancel(self, explorer):
         explorer.client.cancel_all_goals()
 
-    def findClosestUnknownOfSize(self, mapPose, cameramap, costmap, info, explorer, searchValue, minCount):
+    def findClosestUnseenOfSize(self, mapPose, cameramap, costmap, info, explorer, searchValue, minCount):
         expandList = [(mapPose.x, mapPose.y)]
         while len(expandList) > 0:
             curr = expandList.pop(0)
@@ -473,8 +477,6 @@ class State_UnseenApproach(StateInterface):
                 except IndexError:
                     pass
                     # rospy.logwarn("PlanPath: Costmap index access outside of bounds: {}".format(target))
-            else:
-                rospy.logdebug("Already Visited")
         return l
 
 def main():

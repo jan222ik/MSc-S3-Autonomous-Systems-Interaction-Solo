@@ -1,6 +1,9 @@
 # ssh robot in Robot network
 ssh pi@192.168.137.50
 
+
+ssh pi@172.22.73.37
+
 # ssh robot in Robot network v2
 ssh pi@192.168.70.169
 

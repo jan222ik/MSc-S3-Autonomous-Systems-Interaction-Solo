@@ -50,7 +50,8 @@ class TagsToMap:
         self.turtle_x = 0
         self.turtle_y = 0
         self.turtle_covar = None
-        self.pub_seen_map = rospy.Publisher('turtle_seen_map', OccupancyGrid, queue_size=1)
+        self.pub_seen_map = rospy.Publisher('/camera/tag/costmap', OccupancyGrid, queue_size=1)
+        self.pub_seen_middle = rospy.Publisher('/camera/tag/visible', PoseInMap, queue_size=1)
         self.map_camera_seen_initialised = False
         self.map_camera = [[]]
         self.map_camera_seen_seq = 0
@@ -283,9 +284,15 @@ class TagsToMap:
                     if mask[y_mask][x_mask] == 1 and not self.map_camera[y1][x1] > 1:
                         self.map_camera[y1][x1] = 1
                         if self.last_img_pose is not None:
-                            (ly, lx, val) = self.last_img_pose
+                            (ly, lx, angle, val) = self.last_img_pose
                             if y1 == ly and x1 == lx:
                                 self.map_camera[y1][x1] = val
+                                mp = PoseInMap()
+                                mp.y = ly
+                                mp.x = lx
+                                mp.angle = angle
+                                self.pub_seen_middle.publish(mp)
+
                 x_mask = x_mask + 1
 
             y_mask = y_mask + 1
@@ -488,7 +495,7 @@ class TagsToMap:
                                     val = 60
                                 elif area <= 0.1:
                                     val = 50
-                                self.last_img_pose = (map_x, map_y, val)
+                                self.last_img_pose = (map_x, self.robot_pose.angle, map_y, val)
                                 #self._publish_map_camera()
 
                                 #print("TAG POS IN MAP: Y: ", map_y, ", X: ", map_x)

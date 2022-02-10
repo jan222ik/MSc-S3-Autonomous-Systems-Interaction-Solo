@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-
+import rosparam
 import rospy
 import actionlib
 import itertools
@@ -20,6 +20,7 @@ from itertools import combinations
 from itertools import product
 from sys import stdout as out
 import random, numpy, math, copy, matplotlib.pyplot as plt
+from localization.msg import LocalizationAction, LocalizationGoal
 
 
 from abc import ABCMeta, abstractmethod
@@ -46,6 +47,17 @@ class FieldTrip:
     def __init__(self):
         rospy.init_node('field_trip', log_level=rospy.DEBUG, anonymous=True)
         rospy.loginfo("FieldTrip: Startup")
+        self.doLocalize = rospy.get_param("/doLoc", "True") == "True"
+        if self.doLocalize:
+            rospy.logdebug("FieldTrip: Await localization client")
+            client = actionlib.SimpleActionClient('localize_me', LocalizationAction)
+            client.wait_for_server()
+            goal = LocalizationGoal(epsilon=0.3)
+            rospy.logdebug("FieldTrip: Send goal to localize and wait")
+            client.send_goal(goal)
+            client.wait_for_result()
+            rospy.logdebug("FieldTrip: Localized")
+
         self.neighbourThreshold = 80
         rospy.logdebug("FieldTrip: Await tagstore 'tagstore_alltags' service proxy")
         rospy.wait_for_service("tagstore_alltags")
@@ -239,6 +251,7 @@ class FieldTrip:
 
     def tspSolve(self):
         tags = self.taglist
+        rospy.logfatal("Tag List is empty no path can be calculated.")
         N = len(tags)
         tour = random.sample(range(N),N)
         for temperature in numpy.logspace(0,5,num=100000)[::-1]:
