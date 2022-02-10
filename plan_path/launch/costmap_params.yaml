@@ -1,4 +1,4 @@
-global_frame: /map
+global_frame: map
 robot_base_frame: base_link
 update_frequency: 5.0
 publish_frequency: 1.0
@@ -26,7 +26,7 @@ mark_threshold: 0
 #END VOXEL STUFF
 
 global_costmap:
-  robot_base_frame: /base_link
+  robot_base_frame: base_link
   static_map: true
   rolling_window: false
   global_frame: map
