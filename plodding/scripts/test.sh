@@ -42,6 +42,12 @@ settitle PlanPath & rosrun plan_path planPath.py
 settitle FieldTrip & rosrun field_trip fieldTrip.py
 
 
+settitle Explorer & rosrun exploring explorer.py
+
+export TURTLEBOT3_MODEL=waffle && rosrun camera camera_V2.py
+
+settitle core & roscore
+
 # Drive Bot to better observe changes otherwise coordinates will stay the same
 settitle Teleop & roslaunch turtlebot3_teleop turtlebot3_teleop_key.launch
 

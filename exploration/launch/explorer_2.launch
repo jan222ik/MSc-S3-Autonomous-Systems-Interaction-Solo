@@ -1,0 +1,4 @@
+<launch>
+    <include file="$(find traverse_path)/launch/traverse_path.launch"/>
+    <node pkg="plan_path" name="plan_path" type="planPath.py" output="screen"/>
+</launch>
