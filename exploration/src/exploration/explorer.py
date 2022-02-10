@@ -125,8 +125,9 @@ class Explorer:
         while not rospy.is_shutdown() and not self.isDone:
             self._changeState(self.state.run(explorer = self))
             if not self.hasCamera and self.stateUnseenApproach:
+                # noinspection PyTypeChecker
                 self._changeState(nextState = self.stateUnknownApproach)
-            rospy.logdebug_throttle(1, "Explorer > State > {}".format(self.state))
+            rospy.logdebug_throttle(1, "Explorer > State > {}".format(self.state.name()))
             self.rate.sleep()
 
         rospy.logdebug("Explorer: Finished Scenario")
@@ -217,7 +218,9 @@ class State_TagApproach(StateInterface):
 
     def enter(self, explorer):
         self.busyEnter = True
-        # TODO Do work
+        self.isActive = True
+        (x, y, angle) = explorer.assumedTagPose
+        explorer.sendPointToPlanPath((x, y))
         self.busyEnter = False
 
     def _onDone(self, goalId, result):
@@ -230,7 +233,7 @@ class State_TagApproach(StateInterface):
         return self
 
     def cancel(self, explorer):
-        pass
+        explorer.client.cancel_all_goals()
 
 
 class State_UnknownApproach(StateInterface):
@@ -238,7 +241,7 @@ class State_UnknownApproach(StateInterface):
         StateInterface.__init__(self)
         self.busyEnter = False
         self.neighbourThreshold = 20
-        self.isActive = False
+        self.isActive = True
         self.visited = []
         self.rotate = False
         self.rotateCount = 0

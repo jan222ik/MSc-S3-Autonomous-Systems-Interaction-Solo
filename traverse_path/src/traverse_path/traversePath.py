@@ -144,15 +144,23 @@ class TraversePath:
         Publish Traversal Points to RVIS.
         Code copied from tagstore point published, changed colors
         """
+        clearMarkersMsg = MarkerArray()
+        marker = Marker()
+        marker.id = 0
+        marker.ns = "rvismarker_traversal"
+        marker.action = Marker.DELETEALL
+        clearMarkersMsg.markers.append(marker)
+        self.pubRvisMarkerArray.publish(clearMarkersMsg)
+        rospy.sleep(0.2)
         markers = MarkerArray()
         for idx, point in enumerate(points):
             marker = Marker()
             marker.header.frame_id = "map"
             marker.ns = "rvismarker_traversal"
-            marker.type = marker.ARROW
+            marker.type = marker.SPHERE
             marker.action = marker.ADD
             scale = 0.1
-            marker.scale.x = scale
+            marker.scale.x = scale / 2
             marker.scale.y = scale / 2
             marker.scale.z = scale
             isCurrent = self.traversalIdx == idx
