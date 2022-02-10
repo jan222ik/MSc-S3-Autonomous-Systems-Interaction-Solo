@@ -10,4 +10,9 @@
     <node pkg="transformations_odom" name="tf_odom" type="poseconversions.py" output="log"/>
     <include file="$(find tagstore)/launch/tagstore.launch"/>
     <include file="$(find plan_path)/launch/costmap.launch"/>
+    <arg name="open_rviz" default="true"/>
+    <group if="$(arg open_rviz)">
+        <node pkg="rviz" type="rviz" name="rviz" required="true"
+              args="-d $(find turtlebot3_slam)/rviz/turtlebot3_gmapping.rviz"/>
+    </group>
 </launch>

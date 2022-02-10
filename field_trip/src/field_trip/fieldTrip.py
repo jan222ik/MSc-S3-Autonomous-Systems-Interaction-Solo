@@ -222,9 +222,10 @@ class FieldTrip:
             # first index is the row, second index the column
             return costmap[y][x]
         else:
-            raise IndexError(
+            IndexError(
                 "Coordinates out of gridmap, x: {}, y: {} must be in between: [0, {}], [0, {}]".format(
                     x, y, info.height, info.width))
+            return None
 
 
 

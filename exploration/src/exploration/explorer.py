@@ -38,6 +38,7 @@ class Explorer:
 
     def __init__(self):
         rospy.init_node("explorer", log_level=rospy.DEBUG, anonymous=True)
+        self.hasCamera = False
         self.isDone = False
         self.stateUnknownApproach = State_UnknownApproach()
         self.stateUnseenApproach = State_UnseenApproach()
@@ -97,6 +98,14 @@ class Explorer:
         )
         rospy.logdebug("Explorer > Service > Proxy for 'tagstore_tag_at'")
 
+        rospy.logdebug("Explorer > Service > Await 'tagstore_addtag'")
+        rospy.wait_for_service(service="tagstore_addtag")
+        self.tagAddSrv = rospy.ServiceProxy(
+            name = "tagstore_addtag",
+            service_class=TagstoreAddTag
+        )
+        rospy.logdebug("Explorer > Service > Proxy for 'tagstore_tag_at'")
+
         rospy.logdebug("Explorer > Service > Await 'plodding_rotate_quarter_pi'")
         rospy.wait_for_service(service="plodding_rotate_quarter_pi")
         self.rotateQuarter = rospy.ServiceProxy(
@@ -115,12 +124,15 @@ class Explorer:
         self.state.enter(explorer = self)
         while not rospy.is_shutdown() and not self.isDone:
             self._changeState(self.state.run(explorer = self))
+            if not self.hasCamera and self.stateUnseenApproach:
+                self._changeState(nextState = self.stateUnknownApproach)
             rospy.logdebug_throttle(1, "Explorer > State > {}".format(self.state))
             self.rate.sleep()
 
         rospy.logdebug("Explorer: Finished Scenario")
 
     def _changeState(self, nextState):
+        # type: (StateInterface) -> None
         if nextState != self.state:
             rospy.loginfo("Explorer: Transition {} State to {} State".format(self.state.name(), nextState.name()))
             self.state.cancel(explorer = self)
@@ -134,6 +146,8 @@ class Explorer:
         isExistingTag = self.tagLookupSrv(x = data.x, y =data.y).successful
         if not isExistingTag:
             self.assumedTagPose = data
+            # Add tag to tagstore
+            self.tagAddSrv(x = data.x, y =data.y)
             # noinspection PyTypeChecker
             self._changeState(nextState = self.stateTagApproach)
 
@@ -256,12 +270,17 @@ class State_UnknownApproach(StateInterface):
     def run(self, explorer):
 
         if not self.isActive:
-            return explorer.stateUnseenApproach
+            if explorer.hasCamera:
+                return explorer.stateUnseenApproach
+            else:
+                self.enter(explorer)
+                return self
         elif self.rotate:
             if self.rotateCount < 4:
                 self.rotateCount+=1
                 explorer.rotateQuarter()
             else:
+                self.rotate = False
                 self.isActive = False
 
         return self
@@ -360,6 +379,8 @@ class State_UnseenApproach(StateInterface):
     def name(self): return "FindUnseen"
 
     def enter(self, explorer):
+        if explorer.cameraCostmap is None or explorer.cameraCostmapInfo is None:
+            return
         self.busyEnter = True
         self.isActive = True
         point = self.findClosestUnseenOfSize(
@@ -385,11 +406,9 @@ class State_UnseenApproach(StateInterface):
 
         if not self.isActive:
             return explorer.stateUnknownApproach
-            # TODO next goal or state
         elif self.rotate:
             if self.rotateCount < 4:
                 self.rotateCount+=1
-                # TODO Check if block thread
                 explorer.rotateQuarter()
             else:
                 self.isActive = False
