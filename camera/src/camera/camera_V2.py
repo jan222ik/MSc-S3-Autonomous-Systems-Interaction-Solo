@@ -283,7 +283,7 @@ class TagsToMap:
                     if mask[y_mask][x_mask] == 1 and not self.map_camera[y1][x1] > 1:
                         self.map_camera[y1][x1] = 1
                         if self.last_img_pose is not None:
-                            (ly, lx, val) = self.last_img_pose
+                            (ly, lx, yaw, val) = self.last_img_pose
                             if y1 == ly and x1 == lx:
                                 self.map_camera[y1][x1] = val
                 x_mask = x_mask + 1
@@ -429,8 +429,15 @@ class TagsToMap:
                 if len(contours) == 0:
                     return
                 else:
+                   # max_area = 0
+                    #max_c = None
                     for c in contours:
-                        # compute the center of the contour
+                      #  c_area = cv2.contourArea(c)
+                       # if c_area > max_area:
+                        #    max_area = c_area
+                         #   max_c = c
+                    # compute the center of the contour
+                    #if max_c is not None:
                         M = cv2.moments(c)
                         if M["m00"] != 0.0:
                             cX = int(M["m10"] / M["m00"])
@@ -488,12 +495,8 @@ class TagsToMap:
                                     val = 60
                                 elif area <= 0.1:
                                     val = 50
-                                self.last_img_pose = (map_x, map_y, val)
-                                #self._publish_map_camera()
+                                self.last_img_pose = (map_x, map_y, self.robot_pose.angle, val)
 
-                                #print("TAG POS IN MAP: Y: ", map_y, ", X: ", map_x)
-                                # TODO: works in principle, but uncertainty leads to tag overload, fix this
-                                #self.add_tag_with_tagstore(int(map_y), int(map_x))
 
                 cv2.imshow("image", cv_image)
                 self.rate_count = 0
