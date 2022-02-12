@@ -1,5 +1,4 @@
 <launch>
-    <!--<include file="$(find localization)/launch/kidnap_world_moved_pos.launch"/>-->
     <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger, waffle, waffle_pi]"/>
     <arg name="map_file" default="$(find localization)/maps/testHomeMap.yaml"/>
     <arg name="open_rviz" default="true"/>

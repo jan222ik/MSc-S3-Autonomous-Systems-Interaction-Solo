@@ -13,11 +13,11 @@ RATE = 0
 # HSV (Hue, Saturation, V)
 # H : (0, 10), S: (200, 255), V: (20, 255)
 #lab
-#HSV_LOWER = (150, 100, 20)
-#HSV_UPPER = (180, 255, 255)
+HSV_LOWER = (150, 100, 20)
+HSV_UPPER = (180, 255, 255)
 # sim
-HSV_LOWER = (0, 150, 150)
-HSV_UPPER = (40, 255, 255)
+#HSV_LOWER = (0, 150, 150)
+#HSV_UPPER = (40, 255, 255)
 
 class CameraTest:
     """
@@ -46,13 +46,12 @@ class CameraTest:
             hsv = cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV)
 
             # create a binary thresholded image on hue
-            lower_hsv = (rospy.get_param('lower_h', 0),
-                         rospy.get_param('lower_s', 150),
-                         rospy.get_param('lower_v', 150))
-            upper_hsv = (rospy.get_param('upper_h', 40),
+            lower_hsv = (rospy.get_param('lower_h', 150),
+                         rospy.get_param('lower_s', 100),
+                         rospy.get_param('lower_v', 20))
+            upper_hsv = (rospy.get_param('upper_h', 180),
                          rospy.get_param('upper_s', 255),
                          rospy.get_param('upper_v', 255))
-
             lower = lower_hsv
             upper = upper_hsv
             thresh = cv2.inRange(hsv, lower, upper)

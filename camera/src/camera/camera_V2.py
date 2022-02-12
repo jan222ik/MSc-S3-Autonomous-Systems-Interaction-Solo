@@ -460,7 +460,7 @@ class TagsToMap:
                                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
                             cv2.line(cv_image, (center_x, h), (cX, cY), (255, 0, 0), 2)
 
-                            # TODO: remove for real sim runs
+                            # Comment out this line for runs on a real robot!
                             center_x = cX  # test for simulation, since camera is not aligned properly there
 
                             # origin is in camera center, move other point
@@ -487,7 +487,6 @@ class TagsToMap:
                                 # get robot angel and rotate
                                 rot_point = self.rotate(flipped_origin, flipped_cen, self.robot_pose.angle)
                                 # calculate map pos
-                                # TODO: determine proper scaling
                                 map_y = self.robot_pose.y + rot_point[0]//20
                                 map_x = self.robot_pose.x + (-1 * rot_point[1]//20)  # x direction is flipped in map
                                 map_x = int(map_x)
