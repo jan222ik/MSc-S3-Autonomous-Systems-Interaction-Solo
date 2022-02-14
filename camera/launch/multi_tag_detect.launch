@@ -1,4 +1,0 @@
-<launch>
-    <include file="$(find camera)/launch/multi_tag_world.launch"/>
-    <node pkg="camera" name="camera_node" type="camera.py" output="screen"/>
-</launch>

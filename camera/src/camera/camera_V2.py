@@ -436,8 +436,15 @@ class TagsToMap:
                 if len(contours) == 0:
                     return
                 else:
+                   # max_area = 0
+                    #max_c = None
                     for c in contours:
-                        # compute the center of the contour
+                      #  c_area = cv2.contourArea(c)
+                       # if c_area > max_area:
+                        #    max_area = c_area
+                         #   max_c = c
+                    # compute the center of the contour
+                    #if max_c is not None:
                         M = cv2.moments(c)
                         if M["m00"] != 0.0:
                             cX = int(M["m10"] / M["m00"])
@@ -453,7 +460,7 @@ class TagsToMap:
                                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
                             cv2.line(cv_image, (center_x, h), (cX, cY), (255, 0, 0), 2)
 
-                            # TODO: remove for real sim runs
+                            # Comment out this line for runs on a real robot!
                             center_x = cX  # test for simulation, since camera is not aligned properly there
 
                             # origin is in camera center, move other point
@@ -480,7 +487,6 @@ class TagsToMap:
                                 # get robot angel and rotate
                                 rot_point = self.rotate(flipped_origin, flipped_cen, self.robot_pose.angle)
                                 # calculate map pos
-                                # TODO: determine proper scaling
                                 map_y = self.robot_pose.y + rot_point[0]//20
                                 map_x = self.robot_pose.x + (-1 * rot_point[1]//20)  # x direction is flipped in map
                                 map_x = int(map_x)
@@ -495,12 +501,8 @@ class TagsToMap:
                                     val = 60
                                 elif area <= 0.1:
                                     val = 50
-                                self.last_img_pose = (map_x, self.robot_pose.angle, map_y, val)
-                                #self._publish_map_camera()
+                                self.last_img_pose = (map_x, map_y, self.robot_pose.angle, val)
 
-                                #print("TAG POS IN MAP: Y: ", map_y, ", X: ", map_x)
-                                # TODO: works in principle, but uncertainty leads to tag overload, fix this
-                                #self.add_tag_with_tagstore(int(map_y), int(map_x))
 
                 cv2.imshow("image", cv_image)
                 self.rate_count = 0
