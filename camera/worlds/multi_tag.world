@@ -159,6 +159,129 @@
       </link>
     </model>
 
+     <model name="obstacle_4">
+      <pose>0.0 0.5 0 0 0 0</pose>
+      <link name="link">
+
+      <inertial>
+        <mass>0.001</mass>
+        <inertia>
+          <ixx>0.01</ixx><ixy>0.01</ixy><ixz>0.01</ixz><iyy>0.01</iyy><iyz>0.01</iyz><izz>0.01</izz>
+        </inertia>
+      </inertial>
+
+
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>0.09 0.09 0.001</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode><mu>0.001</mu><mu2>0.001</mu2></ode>
+            </friction>
+          </surface>
+        </collision>
+
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>0.09 0.09 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <script>
+              <uri>file://media/materials/scripts/gazebo.material</uri>
+              <name>Gazebo/Red</name>
+            </script>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+     <model name="obstacle_5">
+      <pose>-0.5 0.0 0 0 0 0</pose>
+      <link name="link">
+
+      <inertial>
+        <mass>0.001</mass>
+        <inertia>
+          <ixx>0.01</ixx><ixy>0.01</ixy><ixz>0.01</ixz><iyy>0.01</iyy><iyz>0.01</iyz><izz>0.01</izz>
+        </inertia>
+      </inertial>
+
+
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>0.09 0.09 0.001</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode><mu>0.001</mu><mu2>0.001</mu2></ode>
+            </friction>
+          </surface>
+        </collision>
+
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>0.09 0.09 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <script>
+              <uri>file://media/materials/scripts/gazebo.material</uri>
+              <name>Gazebo/Red</name>
+            </script>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+     <model name="obstacle_6">
+      <pose>0.0 -0.5 0 0 0 0</pose>
+      <link name="link">
+
+      <inertial>
+        <mass>0.001</mass>
+        <inertia>
+          <ixx>0.01</ixx><ixy>0.01</ixy><ixz>0.01</ixz><iyy>0.01</iyy><iyz>0.01</iyz><izz>0.01</izz>
+        </inertia>
+      </inertial>
+
+
+        <collision name="collision">
+          <geometry>
+            <box>
+              <size>0.09 0.09 0.001</size>
+            </box>
+          </geometry>
+          <surface>
+            <friction>
+              <ode><mu>0.001</mu><mu2>0.001</mu2></ode>
+            </friction>
+          </surface>
+        </collision>
+
+        <visual name="visual">
+          <geometry>
+            <box>
+              <size>0.09 0.09 0.001</size>
+            </box>
+          </geometry>
+          <material>
+            <script>
+              <uri>file://media/materials/scripts/gazebo.material</uri>
+              <name>Gazebo/Red</name>
+            </script>
+          </material>
+        </visual>
+      </link>
+    </model>
+
 
     <scene>
       <ambient>0.4 0.4 0.4 1</ambient>

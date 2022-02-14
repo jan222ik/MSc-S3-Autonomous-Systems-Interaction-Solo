@@ -1,0 +1,18 @@
+<launch>
+    <arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger, waffle, waffle_pi]"/>
+    <param name="/doLoc" value="False"/>
+    <param name="/tagsFilepath" value="/home/jan/catkin_ws/exec/tags-house.csv"/>
+
+    <include file="$(find turtlebot3_gazebo)/launch/turtlebot3_house.launch"/>
+    <include file="$(find turtlebot3_slam)/launch/turtlebot3_slam.launch">
+        <arg name="slam_methods" value="gmapping"/>
+    </include>
+    <node pkg="transformations_odom" name="tf_odom" type="poseconversions.py" output="log"/>
+    <include file="$(find tagstore)/launch/tagstore.launch"/>
+    <include file="$(find plan_path)/launch/costmap.launch"/>
+    <arg name="open_rviz" default="true"/>
+    <group if="$(arg open_rviz)">
+        <node pkg="rviz" type="rviz" name="rviz" required="true"
+              args="-d $(find turtlebot3_slam)/rviz/turtlebot3_gmapping.rviz"/>
+    </group>
+</launch>

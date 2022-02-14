@@ -8,28 +8,45 @@ import rospy
 import cv2
 import tf
 from sensor_msgs.msg import Image, CameraInfo, CompressedImage
-from geometry_msgs.msg import PointStamped
+from geometry_msgs.msg import PointStamped, Twist
 from cv_bridge import CvBridge, CvBridgeError
 from nav_msgs.msg import OccupancyGrid, MapMetaData, Odometry
 from image_geometry.cameramodels import PinholeCameraModel
 from tagstore.srv import TagstoreAddTag, TagstoreResetRVis
 from transformations_odom.msg import PoseInMap
 import numpy as np
+from transformations_odom.msg import PoseInMap, PoseTF
 from subprocess import call
+
+RATE = 4
+# HSV (Hue, Saturation, V)
+# H : (0, 10), S: (200, 255), V: (20, 255)
+#lab
+#HSV_LOWER = (150, 100, 20)
+#HSV_UPPER = (180, 255, 255)
+# sim
+HSV_LOWER = (0, 150, 150)
+HSV_UPPER = (40, 255, 255)
 
 
 class TagDetector:
+    """
+    This class is for documenting everything we tried with the camera only.
+    Do not use this in an actual simulation!
+    """
 
     def __init__(self):
         rospy.init_node('tag_detector', anonymous=True)
-        self.mapInfo = MapMetaData()
-        self.mapInfo = rospy.wait_for_message("map", OccupancyGrid).info
+        #self.mapInfo = MapMetaData()
+        #self.mapInfo = rospy.wait_for_message("map", OccupancyGrid).info
         self.is_calculating = False
         self.image_pub = rospy.Publisher("/rupp/image_topic_tag", Image)
         # rospy.on_shutdown(self._shutdown)
+        self.vel = rospy.Publisher('/cmd_vel', Twist, queue_size=1)
         self.bridge = CvBridge()
         # self.odom_sub = rospy.Subscriber("/odom", Odometry, self.odom_callback)
         self.raspi_sub = rospy.Subscriber("/raspicam_node/image/compressed", CompressedImage, self.raspi_callback)
+        self.cur_rob_pose = rospy.Subscriber("/pose_tf", PoseTF, self.test_robo_pose)
         self.image_sub = rospy.Subscriber("/camera/rgb/image_raw", Image, self.img_raw_callback)
         self.depth_sub = rospy.Subscriber("/camera/depth/image_raw", Image, self.depth_callback)
         self.camera_rgb_info = rospy.Subscriber("/camera/rgb/camera_info", CameraInfo, self.cam_callback)
@@ -40,14 +57,42 @@ class TagDetector:
         self.pose = None
         self.saved_map = False
         self.cur_pose = None
+        self.isActive = False
+        self.depth = None
+        self.frame = ""
+        self.rate_count = 0
+        self.test_poso = None
         print("Setup done")
+
+    def test_robo_pose(self, data):
+        self.test_poso = data.mapPose
+
+    def turn_left(self):
+        twist = Twist()
+        twist.linear.x = 0.00
+        twist.angular.z = 0.1
+        self.vel.publish(twist)
+
+    def turn_right(self):
+        twist = Twist()
+        twist.linear.x = 0.00
+        twist.angular.z = -0.1
+        self.vel.publish(twist)
 
     def map_pose_callback(self, data):
         self.pose = (data.x, data.y)
 
+    def get_depth_value(self, point):
+        # depth image is noisy - let's make mean of few pixels
+        da = []
+        for x in range(int(point[0]) - 2, int(point[0]) + 3):
+            for y in range(int(point[1]) - 2, int(point[1]) + 3):
+                da.append(self.depth[y, x] / 1000.0)
+        return np.mean(da)
+
     def odom_callback(self, data):
         point = data.pose.pose.position
-        self.cur_pose = self.convert_point(point.x, point.y, 'odom', 'camera_link')
+        self.cur_pose = self.convert_point(point.x, point.y, 'odom', self.frame)
 
     def map_save_load_test(self, map_name, mode):
         rospy.wait_for_service("/map_save_load")
@@ -78,22 +123,45 @@ class TagDetector:
 
 
     def depth_callback(self, data):
+        rospy.loginfo('Got depth image!')
+        self.depth = self.bridge.imgmsg_to_cv2(data)
+        """
         try:
             NewImg = self.bridge.imgmsg_to_cv2(data, "passthrough")
             self.depth_image = NewImg
             cv2.imshow("depth.png", NewImg)
         except CvBridgeError as e:
             print(e)
+        """
+
+    def calculate_3d_point(self, pixel):
+        """ Project ray through chosen pixel, then use pixel depth to get 3d point """
+        depth = self.get_depth_value(pixel) * 1000  # lookup pixel in depth image
+        ray = self.cam.projectPixelTo3dRay(tuple(pixel))  # get 3d ray of unit length through desired pixel
+        ray_z = [el / ray[2] for el in ray]  # normalize the ray so its Z-component equals 1.0
+        pt = [el * depth for el in ray_z]  # multiply the ray by the depth; its Z-component should now equal the depth value
+        point = PointStamped()
+        point.header.frame_id = self.frame
+        point.point.x = pt[0]
+        point.point.y = pt[1]
+        point.point.z = pt[2]
+        return point
 
     def cam_callback(self, data):
         if self.not_cam_setup:
             self.camera_info = data
+            self.frame = data.header.frame_id
             self.cam.fromCameraInfo(data)
             self.not_cam_setup = False
 
+    def convert_point_direct(self, point, target_frame):
+        listener = tf.TransformListener()
+        listener.waitForTransform(self.frame, target_frame, rospy.Time(0), rospy.Duration(4))
+        return listener.transformPoint(target_frame, point)
+
     def convert_point(self, x, y, base_frame, target_frame):
         listener = tf.TransformListener()
-        listener.waitForTransform(base_frame, target_frame, rospy.Time(0), rospy.Duration(4.0))
+        listener.waitForTransform(base_frame, target_frame, rospy.Time(0), rospy.Duration(4))
         stamp_point = PointStamped()
         stamp_point.header.frame_id = base_frame
         stamp_point.header.stamp = rospy.Time(0)
@@ -107,69 +175,115 @@ class TagDetector:
         self.do_detection(cv_image)
 
     def img_raw_callback(self, data):
+        print("ROWS: ", data.width, ", COLS: ", data.height)
         cv_image = self.bridge.imgmsg_to_cv2(data, "bgr8")
         self.do_detection(cv_image)
 
+    def rotate(self, origin, point, angle):
+        """
+        Rotate a point counterclockwise by a given angle around a given origin.
+
+        The angle should be given in radians.
+        """
+        oy, ox = origin
+        py, px = point
+
+        qx = ox + math.cos(angle) * (px - ox) - math.sin(angle) * (py - oy)
+        qy = oy + math.sin(angle) * (px - ox) + math.cos(angle) * (py - oy)
+        return qy, qx
+
     def do_detection(self, cv_image):
-        hsv = cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV)
+        print("DETECTION_COUNT: ", self.rate_count)
+        if self.rate_count >= RATE:
+            print("DOING DETECTION!!!")
+            hsv = cv2.cvtColor(cv_image, cv2.COLOR_BGR2HSV)
 
-        # create a binary thresholded image on hue between red and yellow
-        lower = (0, 100, 100)
-        upper = (40, 255, 255)
-        thresh = cv2.inRange(hsv, lower, upper)
+            # create a binary thresholded image on hue between red and yellow
+            lower = HSV_LOWER
+            upper = HSV_UPPER
+            thresh = cv2.inRange(hsv, lower, upper)
 
-        # apply morphology
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))
-        clean = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
-        clean = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
+            # apply morphology
+            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9))
+            clean = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
+            kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
+            clean = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
 
-        # get external contours
-        contours = cv2.findContours(clean, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        contours = contours[0] if len(contours) == 2 else contours[1]
+            # get external contours
+            contours = cv2.findContours(clean, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            contours = contours[0] if len(contours) == 2 else contours[1]
 
-        result1 = cv_image.copy()
-        result2 = cv_image.copy()
-        # cv2.imshow("TEST", cv_image)
-        # print("TEST")
-        for c in contours:
-            cv2.drawContours(result1, [c], 0, (0, 0, 0), 2)
-            # get first point of contour position
-            x = c[0][0][0]
-            y = c[0][0][1]
-            print(self.mapInfo)
+            center_arr = []
+            (h, w) = cv_image.shape[:2]  # w:image-width and h:image-height
+            center_x = w//2
+            center_y = h//2
+            # loop over contours
+            if len(contours) == 0:
+                return
+            else:
+                for c in contours:
+                    # compute the center of the contour
+                    M = cv2.moments(c)
+                    if M["m00"] != 0.0:
+                        cX = int(M["m10"] / M["m00"])
+                        cY = int(M["m01"] / M["m00"])
+                        center_arr.append((cX, cY))
+                        c_y = cv_image.shape[0]//2
+                        c_x = cv_image.shape[1]//2
+                        # draw the contour and center of the shape on the image
+                        cv2.drawContours(cv_image, [c], -1, (0, 255, 0), 2)
+                        cv2.circle(cv_image, (cX, cY), 7, (255, 255, 255), -1)
+                        cv2.putText(cv_image, "center", (cX - 20, cY - 20),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+                        cv2.circle(cv_image, (center_x, h), 7, (0, 0, 255), -1)
+                        cv2.putText(cv_image, "center_image", (center_x - 20, h - 20),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+                        cv2.line(cv_image, (center_x, h), (cX, cY), (255, 0, 0), 2)
+                        #print("cx: ", cX, ", cy: ", cY, ", center_x: ", center_x, ", center_y: ", center_y)
+                        center_x = cX  # test for simulation, since camera is not aligned properly there
+                        # origin is in camera center, move other point
+                        new_origin = (h - h, center_x - center_x)
+                        new_cen = (cY - h, cX - center_x)
+                        #print("NEW POINT: ", new_cen, "; ORIGIN: ", new_origin)
+                        # flip y values
+                        flipped_origin = (new_origin[0] * -1, new_origin[1])
+                        flipped_cen = (new_cen[0] * -1, new_cen[1])
+                        print("FLIPPED POINT: ", flipped_cen, ", FLIPPED ORIGIN: ", flipped_origin)
+                        new_line_len = np.linalg.norm(np.array((flipped_cen[1] - flipped_origin[1],flipped_cen[0] - flipped_origin[0])))
+                        new_line_angle = int((math.atan2((flipped_origin[1] - flipped_cen[1]), (flipped_origin[0] - flipped_cen[0])) * 180 / math.pi))
+                        if new_line_angle < 0:
+                            new_line_angle = 360 + new_line_angle
+                        print("NEW LINE LENGTH: ", new_line_len)
+                        print("NEW LINE ANGLE: ", new_line_angle)
 
-            # get depth at point
-            depth_at_point = self.depth_image[x, y]
+                        if new_line_angle > 90:
+                            twist = Twist()
+                            twist.linear.x = 0.0
+                            twist.angular.z = 0.1
+                            self.vel.publish(twist)
+                        elif new_line_angle < 90:
+                            twist = Twist()
+                            twist.linear.x = 0.0
+                            twist.angular.z = -0.1
+                            self.vel.publish(twist)
+                        else:
+                            if self.test_poso is not None:
+                                # get robot angel and rotate
+                                rot_point = self.rotate(flipped_origin, flipped_cen, self.test_poso.angle)
+                                # calculate map pos (scale rot_point, find out best value here)
+                                map_y = self.test_poso.y + rot_point[0]//20
+                                map_x = self.test_poso.x + (-1 * rot_point[1]//20) # x direction is flipped in map
+                                print("TAG POS IN MAP: Y: ", map_y, ", X: ", map_x)
+                                self.add_tag_with_tagstore(int(map_y), int(map_x))
 
-            # circle point in image (to check)
-            cv2.circle(cv_image, (x, y), 20, (0, 255, 0))
+            cv2.imshow("image", cv_image)
+            self.rate_count = 0
+            cv2.waitKey(3)
+            # self.isActive = False
+        else:
+            self.rate_count += 1
 
-            rect_point = self.cam.rectifyPoint((x, y))
-            cam_ray = np.array(self.cam.projectPixelTo3dRay(rect_point))
-            cam_point = cam_ray * depth_at_point
-
-            # cur_point = (self.cur_pose.point.x + cam_point[0], self.cur_pose.point.y + cam_point[1])
-
-            p = self.convert_point(cam_point[0], cam_point[1], "camera_link", "map")
-
-            map_x = p.point.x
-            map_y = p.point.y
-
-            # TODO: not quite right, find error and fix!
-            if self.mapInfo.resolution > 0:
-                grid_x = ((map_x - self.mapInfo.origin.position.x) / self.mapInfo.resolution)
-                grid_y = ((map_y - self.mapInfo.origin.position.y) / self.mapInfo.resolution)
-
-                print("X: ", grid_x, ", Y: ", grid_y)
-
-                self.add_tag_with_tagstore(int(grid_x) + 1, int(grid_y) + 1)
-        #cv2.imshow("depth", self.depth_image)
-        # rospy.sleep(10.0)
-        cv2.imshow("image", cv_image)
-        cv2.waitKey(3)
-
-    def callback(self,data):
+    def callback(self, data):
         if self.is_calculating:
             return
         else:
@@ -205,8 +319,8 @@ class TagDetector:
         for c in contours:
             cv2.drawContours(result1, [c], 0, (0, 0, 0), 2)
             # get first point of contour position
-            x = c[0][0][0]
-            y = c[0][0][1]
+            y = c[0][0][0]
+            x = c[0][0][1]
 
             # get depth at point
             #depth_at_point = self.depth_image[x, y]

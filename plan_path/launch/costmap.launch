@@ -1,0 +1,10 @@
+<launch>
+    
+    <node pkg="costmap_2d" type="costmap_2d_markers" name="voxel_visualizer">
+        <remap from="voxel_grid" to="costmap/voxel_grid"/>
+    </node>
+    <node name="costmap_node" pkg="costmap_2d" type="costmap_2d_node">
+        <rosparam file="$(find plan_path)/launch/costmap_params.yaml" command="load" ns="costmap"/>
+    </node>
+
+</launch>

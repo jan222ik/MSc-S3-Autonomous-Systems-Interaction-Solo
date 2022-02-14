@@ -4,6 +4,7 @@ from __future__ import print_function
 
 import rospy
 import sys
+from operator import itemgetter
 from geometry_msgs.msg import PoseWithCovarianceStamped, Twist
 from nav_msgs.msg import OccupancyGrid, MapMetaData, Odometry
 import numpy as np
@@ -13,6 +14,145 @@ import actionlib
 from localization.msg import LocalizationState, LocalizationAction, LocalizationResult, LocalizationFeedback
 from sensor_msgs.msg import LaserScan
 from tf import transformations
+
+
+LINEAR_VEL = 0.22
+STOP_DISTANCE = 0.2
+LIDAR_ERROR = 0.05
+SAFE_STOP_DISTANCE = STOP_DISTANCE + LIDAR_ERROR
+
+
+# code from turtlebot3_examples -> nodes -> turtlebot3_obstacle
+class Obstacle:
+    def __init__(self):
+        self._cmd_pub = rospy.Publisher('cmd_vel', Twist, queue_size=1)
+
+    def get_scan(self):
+        scan = rospy.wait_for_message('scan', LaserScan)
+        return scan.ranges
+
+    def wall_follow(self):
+        twist = Twist()
+        turtlebot_moving = True
+
+        lidar_distances = self.get_scan()
+        min_distance = min(lidar_distances)
+        min_index = min(enumerate(lidar_distances), key=itemgetter(1))[0]
+        angular = 0.0
+        linear = LINEAR_VEL
+        if min_distance < SAFE_STOP_DISTANCE * 2:
+            if min(lidar_distances[:10]) < SAFE_STOP_DISTANCE or min(lidar_distances[354:364]) < SAFE_STOP_DISTANCE:
+                angular = math.radians(-90)
+                linear = 0.0
+            else:
+                if min_index > 180:
+                    angular = math.radians(min_index-360-90)
+                else:
+                    angular = math.radians(min_index-90)
+        twist = Twist()
+        twist.angular.z = angular
+        twist.linear.x = linear
+        self._cmd_pub.publish(twist)
+        print(angular)
+
+
+class WallFollower:
+
+    def __init__(self):
+        self.rate = rospy.Rate(20)
+        self.state = 0
+        self.botVelPub = rospy.Publisher('/cmd_vel', Twist, queue_size=1)
+        self.laserSub = rospy.Subscriber('/scan', LaserScan, self.updateLaserData)
+        self.laserData = {
+            'r': 0,
+            'fr': 0,
+            'f': 0,
+            'l': 0,
+            'fl': 0
+        }
+
+    def updateLaserData(self, msg):
+        self.laserData = {
+            'fr': min(min(msg.ranges[30:60]), 10),
+            'r': min(min(msg.ranges[61:120]), 10),
+            'f': min(min(msg.ranges[330:359]), min(msg.ranges[0:30]), 10),
+            'l': min(min(msg.ranges[260:299]), 10),
+            'fl': min(min(msg.ranges[300:329]), 10)
+        }
+        print(self.laserData)
+
+    def step(self):
+        self.sensePlan()
+        print("State %d" % self.state)
+        twist = Twist()
+        if self.state == 0:
+            twist = self.findWall()
+        elif self.state == 1:
+            twist = self.turnLeft()
+        elif self.state == 2:
+            twist = self.followWall()
+        elif self.state == 3:
+            twist = self.turnRight()
+            pass
+        else:
+            rospy.logerr('Unknown state!')
+
+        self.botVelPub.publish(twist)
+
+        self.rate.sleep()
+
+    def sensePlan(self):
+        r = self.laserData['r']
+        fr = self.laserData['fr']
+        f = self.laserData['f']
+        l = self.laserData['l']
+        fl = self.laserData['fl']
+
+        d = 0.27
+        state_description = ""
+
+        if f < d:
+            self.state = 1
+            #if f > r < d:
+            #    self.state = 2
+            #else:
+            #    self.state = 1
+        #elif fr == 10 or fr < d:
+        #    if r < d:
+        #        self.state = 1
+        #    else:
+        #        self.state  = 2
+        elif r < d:
+            self.state = 2
+        elif f > d and fr > d and r > d:
+            self.state = 0
+        else:
+            state_description = 'unknown case'
+
+        print(state_description)
+
+    def findWall(self):
+        twist = Twist()
+        twist.linear.x = 0.2
+        twist.angular.z = 0
+        return twist
+
+    def turnLeft(self):
+        twist = Twist()
+        twist.linear.x = 0
+        twist.angular.z = 0.2
+        return twist
+
+    def turnRight(self):
+        twist = Twist()
+        twist.angular.z = -0.2
+        return twist
+
+    def followWall(self):
+        twist = Twist()
+        twist.linear.x = 0.2
+        twist.angular.z = -0.2
+        return twist
 
 
 class WallFollowerTwo:
@@ -142,8 +282,12 @@ class Localizer:
         self.loc_feedback.cur_loc_state.epsilon = goal.epsilon
         self.loc_feedback.cur_loc_state.ellipse_area = np.Inf
         wall_follow = WallFollowerTwo()
+        wall_follow_two = WallFollower()
+        obstacle = Obstacle()
         while self.loc_feedback.cur_loc_state.ellipse_area > goal.epsilon:
-            wall_follow.step()
+            #wall_follow.step()
+            #wall_follow_two.step()
+            obstacle.wall_follow()
             if self.loc_action.is_preempt_requested():
                 rospy.loginfo('%s: Preempted' % 'localize_me')
                 self.loc_action.set_preempted()
